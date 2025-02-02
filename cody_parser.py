@@ -11,6 +11,9 @@ class ASTTypes(Enum):
     ArrayExpression = 8
     BinaryMul = 9
     BinaryDiv = 10
+    Greater = 11
+    Less = 12
+    Equal = 13
 
 
 # TODO: also use an enum
@@ -61,7 +64,29 @@ class CodyBasicParser:
         return self.parse_comparision()    
 
     def parse_comparision(self):
-        return self.parse_term()
+        left = self.parse_term()
+        if "<" in self.peek():
+            self.advance()
+            right = self.parse_term()
+            node = ASTNode(ASTTypes.Less)
+            node.left = left
+            node.right = right
+            return node
+        elif ">" in self.peek():
+            self.advance()
+            right = self.parse_term()
+            node = ASTNode(ASTTypes.Greater)
+            node.left = left
+            node.right = right
+            return node
+        elif "=" in self.peek():
+            self.advance()
+            right = self.parse_term()
+            node = ASTNode(ASTTypes.Equal)
+            node.left = left
+            node.right = right
+            return node
+        return left
 
     def parse_term(self):
         left = self.parse_factor()
@@ -216,7 +241,11 @@ class CodyBasicParser:
             else:
                 c.no_new_line = False
         elif c.command_type == "IF":
-            pass
+            condition, _ = other.split("THEN")
+            _, statement = line.split("THEN", 1)
+            c.condition = self.parse(condition)
+             # FIXME: remove fake line nubmer hack
+            c.command = self.parse_command("000"+ statement)
         elif c.command_type == "INPUT":
             c.expression = self.parse(other)
         elif c.command_type == "GOTO":

@@ -90,3 +90,25 @@ def test_parse_variable_example():
     assert parsed_code[2].expression.right.ast_type == ASTTypes.BinaryMul
     assert parsed_code[2].expression.right.left.ast_type == ASTTypes.ArrayExpression
     assert parsed_code[2].expression.right.right.ast_type == ASTTypes.IntegerLiteral
+
+def test_parse_if_example():
+    code = ['10 INPUT N',
+            '20 IF N<0 THEN PRINT "NEGATIVE"',
+            '30 IF N=0 THEN PRINT "ZERO"',
+            '40 IF N>0 THEN PRINT "POSITIVE"'] # book page 255
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[0].line_number == 10
+    assert parsed_code[0].command_type == "INPUT"
+    assert parsed_code[1].line_number == 20
+    assert parsed_code[1].command_type == "IF"
+    assert parsed_code[1].condition.ast_type == ASTTypes.Less
+    assert parsed_code[1].command.command_type == "PRINT"
+    assert parsed_code[2].line_number == 30
+    assert parsed_code[2].command_type == "IF"
+    assert parsed_code[2].condition.ast_type == ASTTypes.Equal
+    assert parsed_code[2].command.command_type == "PRINT"
+    assert parsed_code[3].line_number == 40
+    assert parsed_code[3].command_type == "IF"
+    assert parsed_code[3].condition.ast_type == ASTTypes.Greater
+    assert parsed_code[3].command.command_type == "PRINT"

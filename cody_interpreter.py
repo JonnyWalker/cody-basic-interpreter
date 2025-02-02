@@ -19,7 +19,7 @@ class Interpreter:
     def add_value(self, target, value, index):
         if target.ast_type == ASTTypes.IntegerVariable:
             array = self.int_arrays.get(target.name, dict())
-            array[index] = value
+            array[index] = int(value)
             self.int_arrays[target.name] = array
         elif target.ast_type == ASTTypes.StringVariable:
             array = self.string_arrays.get(target.name, dict())
@@ -42,7 +42,20 @@ class Interpreter:
         return self.eval_comparison(node)
 
     def eval_comparison(self, node):
-        return self.eval_term(node)
+        if node.ast_type == ASTTypes.Less:
+            left = self.eval_term(node.left)
+            right = self.eval_term(node.right)
+            return left < right
+        elif node.ast_type == ASTTypes.Equal:
+            left = self.eval_term(node.left)
+            right = self.eval_term(node.right)
+            return left == right
+        elif node.ast_type == ASTTypes.Greater:
+            left = self.eval_term(node.left)
+            right = self.eval_term(node.right)
+            return left > right
+        else:
+            return self.eval_term(node)
 
     def eval_term(self, node):
         if node.ast_type == ASTTypes.BinaryAdd:
@@ -109,7 +122,9 @@ class Interpreter:
             else:
                 print(value)
         elif command.command_type == "IF":
-            pass
+            value = self.eval(command.condition)
+            if value:
+                self.run_command(command.command)
         elif command.command_type == "INPUT":
             print("? ", end='')
             index, target = self.compute_target(command.expression)
