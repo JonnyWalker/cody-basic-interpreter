@@ -6,6 +6,25 @@ class Interpreter:
         self.cody_output_log = [] # used for test cases and maybe (later) for debugging
         self.int_arrays = {} # maps variable names to values
         self.string_arrays = {} # maps variable names to values
+    
+    def compute_target(self, node):
+        if node.ast_type == ASTTypes.ArrayExpression:
+            index = node.index
+            target = node.subnode
+        else:
+            index = 0
+            target = node
+        return index, target
+
+    def add_value(self, target, value, index):
+        if target.ast_type == ASTTypes.IntegerVariable:
+            array = self.int_arrays.get(target.name, dict())
+            array[index] = value
+            self.int_arrays[target.name] = array
+        elif target.ast_type == ASTTypes.StringVariable:
+            array = self.string_arrays.get(target.name, dict())
+            array[index] = value
+            self.string_arrays[target.name] = array 
 
     def eval(self, node):
         return self.eval_list(node)
@@ -74,21 +93,9 @@ class Interpreter:
         if command.command_type == "REM":
             pass
         elif command.command_type == "ASSIGNMENT":
-            if command.lvalue.ast_type == ASTTypes.ArrayExpression:
-                index = command.lvalue.index
-                target = command.lvalue.subnode
-            else:
-                index = 0
-                target = command.lvalue
+            index, target = self.compute_target(command.lvalue)
             value = self.eval(command.rvalue)
-            if target.ast_type == ASTTypes.IntegerVariable:
-                array = self.int_arrays.get(target.name, dict())
-                array[index] = value
-                self.int_arrays[target.name] = array
-            elif target.ast_type == ASTTypes.StringVariable:
-                array = self.string_arrays.get(target.name, dict())
-                array[index] = value
-                self.string_arrays[target.name] = array       
+            self.add_value(target, value, index)    
         elif command.command_type == "POKE":
             pass
         elif command.command_type == "GOSUB":
@@ -104,7 +111,10 @@ class Interpreter:
         elif command.command_type == "IF":
             pass
         elif command.command_type == "INPUT":
-            pass
+            print("? ", end='')
+            index, target = self.compute_target(command.expression)
+            value = input()
+            self.add_value(target, value, index)  
         elif command.command_type == "GOTO":
             pass
         elif command.command_type == "NEXT":
