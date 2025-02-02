@@ -6,6 +6,7 @@ class Interpreter:
         self.cody_output_log = [] # used for test cases and maybe (later) for debugging
         self.int_arrays = {} # maps variable names to values
         self.string_arrays = {} # maps variable names to values
+        self.call_stack = []
     
     def compute_target(self, node):
         if node.ast_type == ASTTypes.ArrayExpression:
@@ -112,7 +113,14 @@ class Interpreter:
         elif command.command_type == "POKE":
             pass
         elif command.command_type == "GOSUB":
-            pass
+            number = self.eval(command.expression)
+            assert isinstance(number, int)
+            self.call_stack.append(self.next_index)
+            # TODO: precompute hashmap with jump target to do this in O(1)
+            for index, target in enumerate(self.code):
+                if target.line_number == number:
+                    self.next_index = index
+                    break     
         elif command.command_type == "PRINT":
             value = self.eval(command.expression)
             self.cody_output_log.append(value)
@@ -143,7 +151,9 @@ class Interpreter:
         elif command.command_type == "FOR":
             pass
         elif command.command_type == "RETURN":
-            pass
+            self.next_index = self.call_stack.pop()
+        elif command.command_type == "END":
+            self.next_index = len(self.code)  # FIXME: remove hack 
     
     def run_code(self, code):
         self.code = code

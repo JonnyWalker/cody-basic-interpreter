@@ -80,6 +80,24 @@ def test_goto_example():
     assert "A" in interp.cody_output_log
     assert "B" not in interp.cody_output_log
     assert "Z" in interp.cody_output_log
+    assert ["A", "Z"] == interp.cody_output_log
+
+def test_gosub_example():
+    code = ['10 PRINT "A"',
+            '20 GOSUB 50',
+            '30 PRINT "C"',
+            '40 END',
+            '50 PRINT "B"',
+            '60 RETURN'] # book page 257
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    interp = Interpreter()
+    interp.run_code(parsed_code)
+    assert ["A", "B", "C"] == interp.cody_output_log
+
+
+
+
 
 
 

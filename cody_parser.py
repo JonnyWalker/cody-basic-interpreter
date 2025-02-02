@@ -17,7 +17,7 @@ class ASTTypes(Enum):
 
 
 # TODO: also use an enum
-commands = ["REM", "POKE", "GOSUB", "PRINT", "IF", 
+commands = ["REM", "POKE", "GOSUB", "PRINT", "IF", "END",
             "INPUT", "GOTO", "NEXT", "FOR", "RETURN"]
 
 class Command:
@@ -233,7 +233,7 @@ class CodyBasicParser:
         elif c.command_type == "POKE":
             pass # TODO: parse Expression
         elif c.command_type == "GOSUB":
-            pass
+            c.expression = self.parse(other)
         elif c.command_type == "PRINT":
             c.expression = self.parse(other)
             if ";" == other[-1]: # page 249, semicolon = no new line
@@ -256,6 +256,8 @@ class CodyBasicParser:
             pass
         elif c.command_type == "RETURN":
             pass
+        elif c.command_type == "END":
+            pass    
         return c
 
     def parse_program(self, code):
