@@ -131,7 +131,13 @@ class Interpreter:
             value = input()
             self.add_value(target, value, index)  
         elif command.command_type == "GOTO":
-            pass
+            number = self.eval(command.expression)
+            assert isinstance(number, int)
+            # TODO: precompute hashmap with jump target to do this in O(1)
+            for index, target in enumerate(self.code):
+                if target.line_number == number:
+                    self.next_index = index
+                    break
         elif command.command_type == "NEXT":
             pass
         elif command.command_type == "FOR":
@@ -140,5 +146,9 @@ class Interpreter:
             pass
     
     def run_code(self, code):
-        for command in code: # TODO jump an control flow
+        self.code = code
+        self.next_index = 0
+        while self.next_index < len(code):
+            command = code[self.next_index]
+            self.next_index += 1
             self.run_command(command)

@@ -67,3 +67,19 @@ def test_variable_example2():
     assert interp.string_arrays["M"][0] == "HELLO "
     assert interp.string_arrays["N"][0] == "WORLD!"
     assert "HELLO WORLD!" in interp.cody_output_log
+
+def test_goto_example():
+    code = ['10 PRINT "A"',
+            '20 GOTO 40',
+            '30 PRINT "B"',
+            '40 PRINT "Z"'] # book page 257
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    interp = Interpreter()
+    interp.run_code(parsed_code)
+    assert "A" in interp.cody_output_log
+    assert "B" not in interp.cody_output_log
+    assert "Z" in interp.cody_output_log
+
+
+

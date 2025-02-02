@@ -249,7 +249,7 @@ class CodyBasicParser:
         elif c.command_type == "INPUT":
             c.expression = self.parse(other)
         elif c.command_type == "GOTO":
-            pass
+            c.expression = self.parse(other)
         elif c.command_type == "NEXT":
             pass
         elif c.command_type == "FOR":
