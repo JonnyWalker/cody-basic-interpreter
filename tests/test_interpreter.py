@@ -95,9 +95,12 @@ def test_gosub_example():
     interp.run_code(parsed_code)
     assert ["A", "B", "C"] == interp.cody_output_log
 
-
-
-
-
-
-
+def test_for_example():
+    code = ['10 FOR I=1 TO 5',
+            '20 PRINT I',
+            '30 NEXT'] # book page 259
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    interp = Interpreter()
+    interp.run_code(parsed_code)
+    assert [1, 2, 3, 4, 5] == interp.cody_output_log

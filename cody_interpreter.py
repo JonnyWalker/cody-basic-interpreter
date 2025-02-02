@@ -7,6 +7,7 @@ class Interpreter:
         self.int_arrays = {} # maps variable names to values
         self.string_arrays = {} # maps variable names to values
         self.call_stack = []
+        self.loop_stack = []
     
     def compute_target(self, node):
         if node.ast_type == ASTTypes.ArrayExpression:
@@ -147,9 +148,20 @@ class Interpreter:
                     self.next_index = index
                     break
         elif command.command_type == "NEXT":
-            pass
+            name, limit, next_index = self.loop_stack[-1]
+            current_value = self.int_arrays[name][0]
+            if current_value == limit:
+                pass
+            else:
+                self.int_arrays[name][0] = current_value + 1
+                self.next_index = next_index
         elif command.command_type == "FOR":
-            pass
+            self.run_command(command.assignment)
+            limit = self.eval(command.limit)
+            variable = command.assignment.lvalue
+            assert variable.ast_type == ASTTypes.IntegerVariable
+            self.loop_stack.append((variable.name, limit, self.next_index))
+            assert self.int_arrays[variable.name][0] < limit
         elif command.command_type == "RETURN":
             self.next_index = self.call_stack.pop()
         elif command.command_type == "END":
