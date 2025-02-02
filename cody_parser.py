@@ -8,6 +8,9 @@ class ASTTypes(Enum):
     StringVariable = 5
     IntegerVariable = 6
     ExpressionList = 7
+    ArrayExpression = 8
+    BinaryMul = 9
+    BinaryDiv = 10
 
 
 # TODO: also use an enum
@@ -81,7 +84,22 @@ class ExpressionParser:
         return left
 
     def parse_factor(self):
-        return self.parse_unary()    
+        left = self.parse_unary()
+        if "*" in self.peek():
+            self.advance()
+            right = self.parse_unary()
+            node = ASTNode(ASTTypes.BinaryMul)
+            node.left = left
+            node.right = right
+            return node
+        elif "/" in self.peek():
+            self.advance()
+            right = self.parse_unary()
+            node = ASTNode(ASTTypes.BinaryDiv)
+            node.left = left
+            node.right = right
+            return node
+        return left   
 
     def parse_unary(self):
         return self.parse_primary()
@@ -139,8 +157,16 @@ class ExpressionParser:
             node.name = name
 
         if "(" == self.peek():
-            # TODO: Array
-            print("error: arrays not implemented")
+            index = ""
+            self.advance()
+            while ")" != self.peek():
+                index += self.peek()
+                self.advance()
+            self.advance()
+            subnode = node
+            node = ASTNode(ASTTypes.ArrayExpression)
+            node.subnode = subnode
+            node.index = int(index)
         return node           
 
 
@@ -149,12 +175,13 @@ def parse_command(line):
     splitted = line.split()
     line_number = int(splitted[0])
     command = splitted[1]
-    # bugfix for the broken split approach: read spaces :-D
-    rest = splitted[2]
+    # bugfix for the broken split approach: readd spaces :-D
     if len(splitted) > 2:
-        for s in splitted[3:]:
-            rest += " "+s 
-
+        rest = splitted[2]
+        if len(splitted) > 3:
+            for s in splitted[3:]:
+                rest += " "+s 
+    
     # (1) parse command type
     if command not in commands: # special parsing case
         if "=" in command:
@@ -167,10 +194,11 @@ def parse_command(line):
 
     # (2) parse other parts
     if c.command_type == "ASSIGNMENT":
-        name, expression = splitted[1].split("=")
-        c.name = name
-        ExpressionParser(expression)
-        c.expression = expr_parse.parse()
+        name, expression = splitted[1].split("=")  
+        expr_parse = ExpressionParser(expression)
+        c.rvalue = expr_parse.parse()
+        expr_parse = ExpressionParser(name)
+        c.lvalue = expr_parse.parse()
     elif c.command_type == "POKE":
         pass # TODO: parse Expression
     elif c.command_type == "GOSUB":
@@ -196,12 +224,18 @@ def parse_command(line):
     elif c.command_type == "RETURN":
         pass
     return c
-    #print(command_type)
-    #print(splitted)]
+
+def parse_program(code):
+    parsed_commands = []
+    for command in code:
+        c = parse_command(command)
+        parsed_commands.append(c) 
+    return parsed_commands   
 
 def parse_file(filename):
     code = []
     with open(filename) as f:
         for line in f:
-            parse_command(line)
+            code.append(c)
+    return parse_program(code)
             

@@ -1,11 +1,11 @@
 from cody_parser import ASTTypes
 
 
-state = {} # maps variable names to values
-
 class Interpreter:
     def __init__(self):
         self.cody_output_log = [] # used for test cases and maybe (later) for debugging
+        self.int_arrays = {} # maps variable names to values
+        self.string_arrays = {} # maps variable names to values
 
     def eval(self, node):
         return self.eval_list(node)
@@ -38,7 +38,16 @@ class Interpreter:
             return self.eval_factor(node)
     
     def eval_factor(self, node):
-        return self.eval_unary(node)
+        if node.ast_type == ASTTypes.BinaryMul:
+            left = self.eval_unary(node.left)
+            right = self.eval_unary(node.right)
+            return left * right
+        elif node.ast_type == ASTTypes.BinaryDiv:
+            left = self.eval_unary(node.left)
+            right = self.eval_unary(node.right)
+            return left // right # integer div
+        else:
+            return self.eval_unary(node)
 
     def eval_unary(self, node):
         return self.eval_primary(node)
@@ -48,6 +57,16 @@ class Interpreter:
             return node.literal
         elif node.ast_type == ASTTypes.IntegerLiteral:
             return node.value
+        elif node.ast_type == ASTTypes.IntegerVariable:
+            return self.int_arrays[node.name][0]
+        elif node.ast_type == ASTTypes.StringVariable:
+            return self.string_arrays[node.name][0]
+        elif node.ast_type == ASTTypes.ArrayExpression: # TODO: dry
+            index = node.index
+            if node.subnode.ast_type == ASTTypes.IntegerVariable:
+                return self.int_arrays[node.subnode.name][index]
+            elif node.subnode.ast_type == ASTTypes.StringVariable:
+                return self.string_arrays[node.subnode.name][index]            
         else:
             print("eval error")
         
@@ -55,7 +74,21 @@ class Interpreter:
         if command.command_type == "REM":
             pass
         elif command.command_type == "ASSIGNMENT":
-            pass
+            if command.lvalue.ast_type == ASTTypes.ArrayExpression:
+                index = command.lvalue.index
+                target = command.lvalue.subnode
+            else:
+                index = 0
+                target = command.lvalue
+            value = self.eval(command.rvalue)
+            if target.ast_type == ASTTypes.IntegerVariable:
+                array = self.int_arrays.get(target.name, dict())
+                array[index] = value
+                self.int_arrays[target.name] = array
+            elif target.ast_type == ASTTypes.StringVariable:
+                array = self.string_arrays.get(target.name, dict())
+                array[index] = value
+                self.string_arrays[target.name] = array       
         elif command.command_type == "POKE":
             pass
         elif command.command_type == "GOSUB":
@@ -80,3 +113,7 @@ class Interpreter:
             pass
         elif command.command_type == "RETURN":
             pass
+    
+    def run_code(self, code):
+        for command in code: # TODO jump an control flow
+            self.run_command(command)

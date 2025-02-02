@@ -1,4 +1,4 @@
-from cody_parser import parse_command
+from cody_parser import parse_command, parse_program
 from cody_interpreter import Interpreter
 
 
@@ -28,4 +28,22 @@ def test_expression_list():
     command = parse_command(code)
     interp = Interpreter()
     interp.run_command(command)
-    assert "CODY IS 14 YEARS OLD." in interp.cody_output_log 
+    assert "CODY IS 14 YEARS OLD." in interp.cody_output_log
+
+def test_array_expression():
+    code = '10 A(0)=10' # book page 253
+    command = parse_command(code)
+    interp = Interpreter()
+    interp.run_command(command)
+    assert interp.int_arrays["A"][0] == 10
+
+def test_variable_example():
+    code = ['10 A(0)=10',
+            '20 A(1)=20',
+            '30 PRINT A+A(1)*3'] # book page 253
+    parsed_code = parse_program(code)
+    interp = Interpreter()
+    interp.run_code(parsed_code)
+    assert interp.int_arrays["A"][0] == 10
+    assert interp.int_arrays["A"][1] == 20
+    assert 70 in interp.cody_output_log

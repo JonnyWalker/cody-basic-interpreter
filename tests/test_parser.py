@@ -1,4 +1,4 @@
-from cody_parser import parse_command
+from cody_parser import parse_command, parse_program
 from cody_parser import ASTTypes
 
 def test_parse_simple_add():
@@ -54,3 +54,30 @@ def test_parse_expression_list():
     assert command.expression.expr_list[1].ast_type == ASTTypes.StringLiteral
     assert command.expression.expr_list[2].ast_type == ASTTypes.IntegerVariable
     assert command.expression.expr_list[3].ast_type == ASTTypes.StringLiteral
+
+def test_parse_array_expression():
+    code = '10 A(0)=10' # book page 253
+    command = parse_command(code)
+    assert command.line_number == 10
+    assert command.command_type == "ASSIGNMENT"
+    assert command.lvalue.ast_type == ASTTypes.ArrayExpression
+    assert command.lvalue.index == 0
+    assert command.lvalue.subnode.ast_type == ASTTypes.IntegerVariable
+    assert command.rvalue.ast_type == ASTTypes.IntegerLiteral
+
+def test_parse_variable_example():
+    code = ['10 A(0)=10',
+            '20 A(1)=20',
+            '30 PRINT A+A(1)*3'] # book page 253
+    parsed_code = parse_program(code)
+    assert parsed_code[0].line_number == 10
+    assert parsed_code[0].lvalue.ast_type == ASTTypes.ArrayExpression
+    assert parsed_code[1].line_number == 20
+    assert parsed_code[1].lvalue.ast_type == ASTTypes.ArrayExpression
+    assert parsed_code[2].line_number == 30
+    assert parsed_code[2].command_type == "PRINT"
+    assert parsed_code[2].expression.ast_type == ASTTypes.BinaryAdd
+    assert parsed_code[2].expression.left.ast_type == ASTTypes.IntegerVariable
+    assert parsed_code[2].expression.right.ast_type == ASTTypes.BinaryMul
+    assert parsed_code[2].expression.right.left.ast_type == ASTTypes.ArrayExpression
+    assert parsed_code[2].expression.right.right.ast_type == ASTTypes.IntegerLiteral
