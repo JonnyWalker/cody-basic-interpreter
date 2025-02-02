@@ -253,7 +253,9 @@ class CodyBasicParser:
         elif c.command_type == "NEXT":
             pass
         elif c.command_type == "FOR":
-            pass
+            assignment, limit = other.split("TO")
+            c.assignment = self.parse_command("001 "+ assignment)
+            c.limit = self.parse(limit)
         elif c.command_type == "RETURN":
             pass
         elif c.command_type == "END":

@@ -112,3 +112,15 @@ def test_parse_if_example():
     assert parsed_code[3].command_type == "IF"
     assert parsed_code[3].condition.ast_type == ASTTypes.Greater
     assert parsed_code[3].command.command_type == "PRINT"
+
+def test_parse_for_example():
+    code = ['10 FOR I=1 TO 5',
+            '20 PRINT I',
+            '30 NEXT'] # book page 259
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[0].command_type == "FOR"
+    assert parsed_code[0].assignment.command_type == "ASSIGNMENT"
+    assert parsed_code[0].limit.ast_type == ASTTypes.IntegerLiteral
+    assert parsed_code[1].command_type == "PRINT"
+    assert parsed_code[2].command_type == "NEXT"
