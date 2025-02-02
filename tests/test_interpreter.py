@@ -54,3 +54,16 @@ def test_variable_example():
     assert interp.int_arrays["A"][0] == 10
     assert interp.int_arrays["A"][1] == 20
     assert 70 in interp.cody_output_log
+
+
+def test_variable_example2():
+    code = ['10 M$ = "HELLO "',
+            '20 N$ = "WORLD!"',
+            '30 PRINT M$,N$'] # book page 254
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    interp = Interpreter()
+    interp.run_code(parsed_code)
+    assert interp.string_arrays["M"][0] == "HELLO "
+    assert interp.string_arrays["N"][0] == "WORLD!"
+    assert "HELLO WORLD!" in interp.cody_output_log

@@ -41,7 +41,7 @@ class CodyBasicParser:
     def parse(self, string):
         self.pos = 0
         # TODO: remove spaces
-        self.string = string        
+        self.string = string    
         node = self.parse_list()
         return node
     
@@ -169,46 +169,56 @@ class CodyBasicParser:
 
 
     def parse_command(self, line):
-        # TODO: This will break some day. Replace with better parsing
-        splitted = line.split()
+        # (0) split at first space, which musst be after the line numer
+        splitted = line.split(" ", 1)
         line_number = int(splitted[0])
-        command = splitted[1]
-        # bugfix for the broken split approach: readd spaces :-D
-        if len(splitted) > 2:
-            rest = splitted[2]
-            if len(splitted) > 3:
-                for s in splitted[3:]:
-                    rest += " "+s 
         
         # (1) parse command type
-        if command not in commands: # special parsing case
-            if "=" in command:
+        is_assignment = True
+        for command in commands:
+            if splitted[1].startswith(command):
+                is_assignment = False
+                command_type = command
+                rest = splitted[1][len(command):]
+                break
+        if is_assignment: # special parsing case for assignments 
+            if "=" in splitted[1]:
                 command_type = "ASSIGNMENT"
+                rest = splitted[1]
             else:
-                print("error! unknown command:"+command)
-        else:
-            command_type = command
+                raise NotImplementedError("error! unknown command:"+splitted[1])
         c = Command(line_number, command_type)
 
-        # (2) parse other parts
+        # (2) remove spaces from rest, except in string literal
+        other = ""
+        inside_string_literal = False
+        for char in rest:
+            if char == '"':
+                inside_string_literal = not inside_string_literal
+            elif char == " ":
+                if not inside_string_literal:
+                    continue
+            other += char
+
+        # (3) parse other parts
         if c.command_type == "ASSIGNMENT":
-            name, expression = splitted[1].split("=")  
+            name, expression = other.split("=")
+            c.lvalue = self.parse(name)  
             c.rvalue = self.parse(expression)
-            c.lvalue = self.parse(name)
         elif c.command_type == "POKE":
             pass # TODO: parse Expression
         elif c.command_type == "GOSUB":
             pass
         elif c.command_type == "PRINT":
-            c.expression = self.parse(rest)
-            if ";" == rest[-1]: # page 249, semicolon = no new line
+            c.expression = self.parse(other)
+            if ";" == other[-1]: # page 249, semicolon = no new line
                 c.no_new_line = True
             else:
                 c.no_new_line = False
         elif c.command_type == "IF":
             pass
         elif c.command_type == "INPUT":
-            c.expression = self.parse(rest)
+            c.expression = self.parse(other)
         elif c.command_type == "GOTO":
             pass
         elif c.command_type == "NEXT":
