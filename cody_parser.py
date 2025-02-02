@@ -26,12 +26,7 @@ class ASTNode:
     def __init__(self, ast_type):
         self.ast_type = ast_type
 
-class ExpressionParser:
-    def __init__(self, string):
-        self.pos = 0
-        # TODO: remove spaces
-        self.string = string
-
+class CodyBasicParser:
     def peek(self):
         if self.is_eol():
             return ""
@@ -43,7 +38,10 @@ class ExpressionParser:
     def is_eol(self):
         return len(self.string) == self.pos
     
-    def parse(self):
+    def parse(self, string):
+        self.pos = 0
+        # TODO: remove spaces
+        self.string = string        
         node = self.parse_list()
         return node
     
@@ -170,72 +168,68 @@ class ExpressionParser:
         return node           
 
 
-def parse_command(line):
-    # TODO: This will break some day. Replace with better parsing
-    splitted = line.split()
-    line_number = int(splitted[0])
-    command = splitted[1]
-    # bugfix for the broken split approach: readd spaces :-D
-    if len(splitted) > 2:
-        rest = splitted[2]
-        if len(splitted) > 3:
-            for s in splitted[3:]:
-                rest += " "+s 
-    
-    # (1) parse command type
-    if command not in commands: # special parsing case
-        if "=" in command:
-            command_type = "ASSIGNMENT"
+    def parse_command(self, line):
+        # TODO: This will break some day. Replace with better parsing
+        splitted = line.split()
+        line_number = int(splitted[0])
+        command = splitted[1]
+        # bugfix for the broken split approach: readd spaces :-D
+        if len(splitted) > 2:
+            rest = splitted[2]
+            if len(splitted) > 3:
+                for s in splitted[3:]:
+                    rest += " "+s 
+        
+        # (1) parse command type
+        if command not in commands: # special parsing case
+            if "=" in command:
+                command_type = "ASSIGNMENT"
+            else:
+                print("error! unknown command:"+command)
         else:
-            print("error! unknown command:"+command)
-    else:
-        command_type = command
-    c = Command(line_number, command_type)
+            command_type = command
+        c = Command(line_number, command_type)
 
-    # (2) parse other parts
-    if c.command_type == "ASSIGNMENT":
-        name, expression = splitted[1].split("=")  
-        expr_parse = ExpressionParser(expression)
-        c.rvalue = expr_parse.parse()
-        expr_parse = ExpressionParser(name)
-        c.lvalue = expr_parse.parse()
-    elif c.command_type == "POKE":
-        pass # TODO: parse Expression
-    elif c.command_type == "GOSUB":
-        pass
-    elif c.command_type == "PRINT":
-        expr_parse = ExpressionParser(rest)
-        c.expression = expr_parse.parse()
-        if ";" == rest[-1]: # page 249, semicolon = no new line
-            c.no_new_line = True
-        else:
-            c.no_new_line = False
-    elif c.command_type == "IF":
-        pass
-    elif c.command_type == "INPUT":
-        expr_parse = ExpressionParser(rest)
-        c.expression = expr_parse.parse()
-    elif c.command_type == "GOTO":
-        pass
-    elif c.command_type == "NEXT":
-        pass
-    elif c.command_type == "FOR":
-        pass
-    elif c.command_type == "RETURN":
-        pass
-    return c
+        # (2) parse other parts
+        if c.command_type == "ASSIGNMENT":
+            name, expression = splitted[1].split("=")  
+            c.rvalue = self.parse(expression)
+            c.lvalue = self.parse(name)
+        elif c.command_type == "POKE":
+            pass # TODO: parse Expression
+        elif c.command_type == "GOSUB":
+            pass
+        elif c.command_type == "PRINT":
+            c.expression = self.parse(rest)
+            if ";" == rest[-1]: # page 249, semicolon = no new line
+                c.no_new_line = True
+            else:
+                c.no_new_line = False
+        elif c.command_type == "IF":
+            pass
+        elif c.command_type == "INPUT":
+            c.expression = self.parse(rest)
+        elif c.command_type == "GOTO":
+            pass
+        elif c.command_type == "NEXT":
+            pass
+        elif c.command_type == "FOR":
+            pass
+        elif c.command_type == "RETURN":
+            pass
+        return c
 
-def parse_program(code):
-    parsed_commands = []
-    for command in code:
-        c = parse_command(command)
-        parsed_commands.append(c) 
-    return parsed_commands   
+    def parse_program(self, code):
+        parsed_commands = []
+        for command in code:
+            c = self.parse_command(command)
+            parsed_commands.append(c) 
+        return parsed_commands   
 
-def parse_file(filename):
-    code = []
-    with open(filename) as f:
-        for line in f:
-            code.append(c)
-    return parse_program(code)
-            
+    def parse_file(self, filename):
+        code = []
+        with open(filename) as f:
+            for line in f:
+                code.append(line)
+        return self.parse_program(code)
+                
