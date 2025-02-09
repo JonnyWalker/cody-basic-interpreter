@@ -25,7 +25,6 @@ class ASTTypes(Enum):
 # TODO: also use an enum
 commands = [
     "REM",
-    "POKE",
     "GOSUB",
     "PRINT",
     "IF",
@@ -35,6 +34,13 @@ commands = [
     "NEXT",
     "FOR",
     "RETURN",
+    "OPEN",
+    "CLOSE",
+    "DATA",
+    "READ",
+    "RESTORE",
+    "POKE",
+    "SYS",
 ]
 
 
@@ -269,16 +275,14 @@ class CodyBasicParser:
         # (3) parse other parts
         if c.command_type == "REM":
             pass  # ignore line
-        elif c.command_type in ("NEXT", "RETURN", "END"):
+        elif c.command_type in ("NEXT", "RETURN", "END", "CLOSE", "RESTORE"):
             if other:
                 raise Exception("expected end of line")
         elif c.command_type == "ASSIGNMENT":
-            name, expression = other.split("=", 1)
-            c.lvalue = self.parse(name)
-            c.rvalue = self.parse(expression)
-        elif c.command_type == "POKE":
-            c.address, c.expression = self.parse(other, list=True)
-        elif c.command_type == "GOSUB":
+            ast = self.parse(other)
+            assert ast.ast_type == ASTTypes.Equal
+            c.lvalue, c.rvalue = ast.left, ast.right
+        elif c.command_type in ("GOTO", "GOSUB"):
             c.expression = self.parse(other)
         elif c.command_type == "PRINT":
             c.expressions = self.parse(other, list=True, ignore_tail=True)
@@ -289,19 +293,23 @@ class CodyBasicParser:
                 c.no_new_line = False
             if self.peek():
                 raise Exception("expected end of line")
+        elif c.command_type in ("INPUT", "DATA", "READ"):
+            c.expressions = self.parse(other, list=True)
+            assert len(c.expressions) >= 1
         elif c.command_type == "IF":
             condition, statement = other.split("THEN", 1)
             c.condition = self.parse(condition)
             c.command = self.parse_statement(statement)
-        elif c.command_type == "INPUT":
-            c.expressions = self.parse(other, list=True)
-            assert len(c.expressions) >= 1
-        elif c.command_type == "GOTO":
-            c.expression = self.parse(other)
         elif c.command_type == "FOR":
             assignment, limit = other.split("TO", 1)
             c.assignment = self.parse_statement(assignment)
             c.limit = self.parse(limit)
+        elif c.command_type == "OPEN":
+            c.uart, c.bit_rate = self.parse(other, list=True)
+        elif c.command_type == "POKE":
+            c.address, c.expression = self.parse(other, list=True)
+        elif c.command_type == "SYS":
+            c.address = self.parse(other)
         else:
             raise NotImplementedError(f"unknown command type {c.command_type}")
         return c

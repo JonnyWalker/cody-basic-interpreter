@@ -93,13 +93,11 @@ class Interpreter:
 
     def run_command(self, command):
         if command.command_type == "REM":
-            pass
+            pass  # ignore line
         elif command.command_type == "ASSIGNMENT":
             index, target = self.compute_target(command.lvalue)
             value = self.eval(command.rvalue)
             self.add_value(target, value, index)
-        elif command.command_type == "POKE":
-            pass  # TODO
         elif command.command_type == "GOSUB":
             number = self.eval(command.expression)
             assert isinstance(number, int)
