@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 
 
 class ASTTypes(Enum):
@@ -12,9 +13,12 @@ class ASTTypes(Enum):
     ArrayExpression = 8
     BinaryMul = 9
     BinaryDiv = 10
-    Greater = 11
-    Less = 12
-    Equal = 13
+    Equal = 11
+    NotEqual = 12
+    Less = 13
+    LessEqual = 14
+    Greater = 15
+    GreaterEqual = 16
 
 
 # TODO: also use an enum
@@ -76,68 +80,62 @@ class CodyBasicParser:
         return node
 
     def parse_equality(self):
-        return self.parse_comparision()
+        return self.parse_comparison()
 
-    def parse_comparision(self):
+    def parse_comparison(self):
         left = self.parse_term()
-        if "<" in self.peek():
-            self.advance()
-            right = self.parse_term()
-            node = ASTNode(ASTTypes.Less)
-            node.left = left
-            node.right = right
-            return node
-        elif ">" in self.peek():
-            self.advance()
-            right = self.parse_term()
-            node = ASTNode(ASTTypes.Greater)
-            node.left = left
-            node.right = right
-            return node
-        elif "=" in self.peek():
-            self.advance()
-            right = self.parse_term()
-            node = ASTNode(ASTTypes.Equal)
-            node.left = left
-            node.right = right
-            return node
-        return left
+
+        ops = {
+            "=": ASTTypes.Equal,
+            "<>": ASTTypes.NotEqual,
+            "<": ASTTypes.Less,
+            "<=": ASTTypes.LessEqual,
+            ">": ASTTypes.Greater,
+            ">=": ASTTypes.GreaterEqual,
+        }
+        op_type = self.find_op(ops)
+        if not op_type:
+            return left
+
+        right = self.parse_term()
+        node = ASTNode(op_type)
+        node.left = left
+        node.right = right
+        return node
 
     def parse_term(self):
         left = self.parse_factor()
-        if "+" in self.peek():
-            self.advance()
-            right = self.parse_factor()
-            node = ASTNode(ASTTypes.BinaryAdd)
-            node.left = left
-            node.right = right
-            return node
-        elif "-" in self.peek():
-            self.advance()
-            right = self.parse_factor()
-            node = ASTNode(ASTTypes.BinarySub)
-            node.left = left
-            node.right = right
-            return node
-        return left
+
+        ops = {
+            "+": ASTTypes.BinaryAdd,
+            "-": ASTTypes.BinarySub,
+        }
+        op_type = self.find_op(ops)
+        if not op_type:
+            return left
+
+        right = self.parse_factor()
+        node = ASTNode(op_type)
+        node.left = left
+        node.right = right
+        return node
 
     def parse_factor(self):
         left = self.parse_unary()
-        if "*" in self.peek():
-            self.advance()
-            right = self.parse_unary()
-            node = ASTNode(ASTTypes.BinaryMul)
-            node.left = left
-            node.right = right
-            return node
-        elif "/" in self.peek():
-            self.advance()
-            right = self.parse_unary()
-            node = ASTNode(ASTTypes.BinaryDiv)
-            node.left = left
-            node.right = right
-            return node
-        return left
+
+        ops = {
+            "*": ASTTypes.BinaryMul,
+            "/": ASTTypes.BinaryDiv,
+        }
+        op_type = self.find_op(ops)
+        if not op_type:
+            return left
+
+        right = self.parse_unary()
+        node = ASTNode(op_type)
+        node.left = left
+        node.right = right
+        return node
 
     def parse_unary(self):
         return self.parse_primary()
@@ -150,7 +148,7 @@ class CodyBasicParser:
         elif self.peek().isalpha():
             node = self.parse_variable()
         else:
-            print("parse error")
+            raise Exception("parse error")
         return node
 
     def parse_integer_literal(self):
@@ -163,7 +161,7 @@ class CodyBasicParser:
                 break
         node = ASTNode(ASTTypes.IntegerLiteral)
         node.value = int(literal)
-        if node.value >= -32768 and node.value <= 32767:
+        if -32768 <= node.value <= 32767:
             return node
         else:
             return node  # TODO fix invalid bounds (-32768 to 32767)
@@ -206,6 +204,30 @@ class CodyBasicParser:
             node.subnode = subnode
             node.index = int(index)
         return node
+
+    def find_op(self, ops: dict[str, ASTTypes]) -> Optional[ASTTypes]:
+        """
+        Find the longest matching key in "ops" and return its value.
+        """
+        initial_pos = self.pos
+        valid_tokens = list(ops.keys())
+        last_valid_token = None
+        op = ""
+        while True:
+            next_char = self.peek()
+            if not next_char:
+                break  # eol
+            op += next_char
+            self.advance()
+
+            valid_tokens = [t for t in valid_tokens if t.startswith(op)]
+            if not valid_tokens:
+                break
+            elif op in ops:
+                last_valid_token = op
+
+        self.pos = initial_pos + (len(last_valid_token) if last_valid_token else 0)
+        return ops[last_valid_token] if last_valid_token else None
 
     def parse_statement(self, command):
         # (1) parse command type
@@ -276,6 +298,9 @@ class CodyBasicParser:
     def parse_program(self, lines):
         parsed_commands = []
         for line in lines:
+            line = line.strip()
+            if not line:
+                continue
             c = self.parse_line(line)
             parsed_commands.append(c)
         return parsed_commands
