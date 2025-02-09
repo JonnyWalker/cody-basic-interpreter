@@ -148,7 +148,7 @@ class Interpreter:
                 self.run_command(command.command)
         elif command.command_type == "INPUT":
             for expr in command.expressions:
-                index, target = self.compute_target(command.expression)
+                index, target = self.compute_target(expr)
                 value = input("? ")
                 self.add_value(target, value, index)
         elif command.command_type == "GOTO":

@@ -257,7 +257,9 @@ class CodyBasicParser:
             other += char
 
         # (3) parse other parts
-        if c.command_type in ("REM", "NEXT", "RETURN", "END"):
+        if c.command_type == "REM":
+            pass  # ignore line
+        elif c.command_type in ("NEXT", "RETURN", "END"):
             if other:
                 raise Exception("expected end of line")
         elif c.command_type == "ASSIGNMENT":
@@ -283,6 +285,7 @@ class CodyBasicParser:
             c.command = self.parse_statement(statement)
         elif c.command_type == "INPUT":
             c.expressions = self.parse(other, list=True)
+            assert len(c.expressions) >= 1
         elif c.command_type == "GOTO":
             c.expression = self.parse(other)
         elif c.command_type == "FOR":
