@@ -9,21 +9,25 @@ def test_parse_simple_add():
     command = parser.parse_line(code)
     assert command.line_number == 10
     assert command.command_type == "PRINT"
-    assert command.expression.ast_type == ASTTypes.BinaryAdd
-    assert command.expression.left.ast_type == ASTTypes.IntegerLiteral
-    assert command.expression.right.ast_type == ASTTypes.IntegerLiteral
-    assert command.expression.left.value == 3
-    assert command.expression.right.value == 4
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.BinaryAdd
+    assert ast.left.ast_type == ASTTypes.IntegerLiteral
+    assert ast.right.ast_type == ASTTypes.IntegerLiteral
+    assert ast.left.value == 3
+    assert ast.right.value == 4
 
 
 def test_parse_hello_world():
-    code = '10 PRINT "Hello"'  # book page 248
+    code = '10 PRINT "HELLO"'  # book page 248
     parser = CodyBasicParser()
     command = parser.parse_line(code)
     assert command.line_number == 10
     assert command.command_type == "PRINT"
-    assert command.expression.ast_type == ASTTypes.StringLiteral
-    assert command.expression.literal == "Hello"
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.StringLiteral
+    assert ast.literal == "HELLO"
 
 
 def test_parse_no_new_line_print():
@@ -32,8 +36,11 @@ def test_parse_no_new_line_print():
     command = parser.parse_line(code)
     assert command.line_number == 10
     assert command.command_type == "PRINT"
-    assert command.expression.ast_type == ASTTypes.StringLiteral
-    assert command.expression.literal == "WHAT IS YOUR NAME"
+    assert command.no_new_line
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.StringLiteral
+    assert ast.literal == "WHAT IS YOUR NAME"
 
 
 def test_parse_string_var():
@@ -42,8 +49,10 @@ def test_parse_string_var():
     command = parser.parse_line(code)
     assert command.line_number == 20
     assert command.command_type == "INPUT"
-    assert command.expression.ast_type == ASTTypes.StringVariable
-    assert command.expression.name == "N"
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.StringVariable
+    assert ast.name == "N"
 
 
 def test_parse_integer_var():
@@ -52,8 +61,10 @@ def test_parse_integer_var():
     command = parser.parse_line(code)
     assert command.line_number == 40
     assert command.command_type == "INPUT"
-    assert command.expression.ast_type == ASTTypes.IntegerVariable
-    assert command.expression.name == "A"
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.IntegerVariable
+    assert ast.name == "A"
 
 
 def test_parse_expression_list():
@@ -62,11 +73,11 @@ def test_parse_expression_list():
     command = parser.parse_line(code)
     assert command.line_number == 50
     assert command.command_type == "PRINT"
-    assert command.expression.ast_type == ASTTypes.ExpressionList
-    assert command.expression.expr_list[0].ast_type == ASTTypes.StringVariable
-    assert command.expression.expr_list[1].ast_type == ASTTypes.StringLiteral
-    assert command.expression.expr_list[2].ast_type == ASTTypes.IntegerVariable
-    assert command.expression.expr_list[3].ast_type == ASTTypes.StringLiteral
+    assert len(command.expressions) == 4
+    assert command.expressions[0].ast_type == ASTTypes.StringVariable
+    assert command.expressions[1].ast_type == ASTTypes.StringLiteral
+    assert command.expressions[2].ast_type == ASTTypes.IntegerVariable
+    assert command.expressions[3].ast_type == ASTTypes.StringLiteral
 
 
 def test_parse_array_expression():
@@ -82,7 +93,11 @@ def test_parse_array_expression():
 
 
 def test_parse_variable_example():
-    code = ["10 A(0)=10", "20 A(1)=20", "30 PRINT A+A(1)*3"]  # book page 253
+    code = [
+        "10 A(0)=10",
+        "20 A(1)=20",
+        "30 PRINT A+A(1)*3",
+    ]  # book page 253
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
     assert parsed_code[0].line_number == 10
@@ -91,11 +106,13 @@ def test_parse_variable_example():
     assert parsed_code[1].lvalue.ast_type == ASTTypes.ArrayExpression
     assert parsed_code[2].line_number == 30
     assert parsed_code[2].command_type == "PRINT"
-    assert parsed_code[2].expression.ast_type == ASTTypes.BinaryAdd
-    assert parsed_code[2].expression.left.ast_type == ASTTypes.IntegerVariable
-    assert parsed_code[2].expression.right.ast_type == ASTTypes.BinaryMul
-    assert parsed_code[2].expression.right.left.ast_type == ASTTypes.ArrayExpression
-    assert parsed_code[2].expression.right.right.ast_type == ASTTypes.IntegerLiteral
+    assert len(parsed_code[2].expressions) == 1
+    ast = parsed_code[2].expressions[0]
+    assert ast.ast_type == ASTTypes.BinaryAdd
+    assert ast.left.ast_type == ASTTypes.IntegerVariable
+    assert ast.right.ast_type == ASTTypes.BinaryMul
+    assert ast.right.left.ast_type == ASTTypes.ArrayExpression
+    assert ast.right.right.ast_type == ASTTypes.IntegerLiteral
 
 
 def test_parse_if_example():
@@ -124,7 +141,11 @@ def test_parse_if_example():
 
 
 def test_parse_for_example():
-    code = ["10 FOR I=1 TO 5", "20 PRINT I", "30 NEXT"]  # book page 259
+    code = [
+        "10 FOR I=1 TO 5",
+        "20 PRINT I",
+        "30 NEXT",
+    ]  # book page 259
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
     assert parsed_code[0].command_type == "FOR"

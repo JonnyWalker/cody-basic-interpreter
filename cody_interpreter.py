@@ -29,18 +29,6 @@ class Interpreter:
             self.string_arrays[target.name] = array
 
     def eval(self, node):
-        return self.eval_list(node)
-
-    def eval_list(self, node):
-        if node.ast_type == ASTTypes.ExpressionList:
-            result = ""
-            for n in node.expr_list:
-                result += self.eval_equality(n)  # TODO: what if not a string?
-            return result
-        else:
-            return self.eval_equality(node)
-
-    def eval_equality(self, node):
         return self.eval_comparison(node)
 
     def eval_comparison(self, node):
@@ -103,16 +91,18 @@ class Interpreter:
             return node.literal
         elif node.ast_type == ASTTypes.IntegerLiteral:
             return node.value
-        elif node.ast_type == ASTTypes.IntegerVariable:
-            return self.int_arrays[node.name][0]
-        elif node.ast_type == ASTTypes.StringVariable:
-            return self.string_arrays[node.name][0]
-        elif node.ast_type == ASTTypes.ArrayExpression:  # TODO: dry
-            index = node.index
-            if node.subnode.ast_type == ASTTypes.IntegerVariable:
-                return self.int_arrays[node.subnode.name][index]
-            elif node.subnode.ast_type == ASTTypes.StringVariable:
-                return self.string_arrays[node.subnode.name][index]
+        elif node.ast_type in (
+            ASTTypes.IntegerVariable,
+            ASTTypes.StringVariable,
+            ASTTypes.ArrayExpression,
+        ):
+            index, target = self.compute_target(node)
+            if target.ast_type == ASTTypes.IntegerVariable:
+                return self.int_arrays[target.name][index]
+            elif target.ast_type == ASTTypes.StringVariable:
+                return self.string_arrays[target.name][index]
+            else:
+                raise AssertionError
         else:
             raise Exception("eval error")
 
@@ -135,22 +125,32 @@ class Interpreter:
                     self.next_index = index
                     break
         elif command.command_type == "PRINT":
-            value = self.eval(command.expression)
-            self.cody_output_log.append(value)
-            # https://stackoverflow.com/questions/493386/how-to-print-without-a-newline-or-space
+            value = ""
+            for expr in command.expressions:
+                # TODO: implement AT and TAB functions
+                value += str(self.eval(expr))
+
+            if not self.cody_output_log or self.last_print_had_new_line:
+                self.cody_output_log.append(value)
+            else:
+                self.cody_output_log[-1] += value
+
             if command.no_new_line:
+                # https://stackoverflow.com/questions/493386/how-to-print-without-a-newline-or-space
                 print(value, end="")
+                self.last_print_had_new_line = False
             else:
                 print(value)
+                self.last_print_had_new_line = True
         elif command.command_type == "IF":
             value = self.eval(command.condition)
             if value:
                 self.run_command(command.command)
         elif command.command_type == "INPUT":
-            print("? ", end="")
-            index, target = self.compute_target(command.expression)
-            value = input()
-            self.add_value(target, value, index)
+            for expr in command.expressions:
+                index, target = self.compute_target(command.expression)
+                value = input("? ")
+                self.add_value(target, value, index)
         elif command.command_type == "GOTO":
             number = self.eval(command.expression)
             assert isinstance(number, int)

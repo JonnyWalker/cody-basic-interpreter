@@ -1,24 +1,24 @@
-from enum import Enum
+from enum import Enum, auto, unique
 from typing import Optional
 
 
+@unique
 class ASTTypes(Enum):
-    IntegerLiteral = 1
-    StringLiteral = 2
-    BinaryAdd = 3
-    BinarySub = 4
-    StringVariable = 5
-    IntegerVariable = 6
-    ExpressionList = 7
-    ArrayExpression = 8
-    BinaryMul = 9
-    BinaryDiv = 10
-    Equal = 11
-    NotEqual = 12
-    Less = 13
-    LessEqual = 14
-    Greater = 15
-    GreaterEqual = 16
+    IntegerLiteral = auto()
+    StringLiteral = auto()
+    BinaryAdd = auto()
+    BinarySub = auto()
+    StringVariable = auto()
+    IntegerVariable = auto()
+    ArrayExpression = auto()
+    BinaryMul = auto()
+    BinaryDiv = auto()
+    Equal = auto()
+    NotEqual = auto()
+    Less = auto()
+    LessEqual = auto()
+    Greater = auto()
+    GreaterEqual = auto()
 
 
 # TODO: also use an enum
@@ -60,26 +60,28 @@ class CodyBasicParser:
     def is_eol(self):
         return len(self.string) == self.pos
 
-    def parse(self, string):
+    def parse(self, string, list=False, ignore_tail=False):
         self.pos = 0
-        # TODO: remove spaces
         self.string = string
-        node = self.parse_list()
+        if list:
+            node = self.parse_list()
+        else:
+            node = self.parse_expr()
+        if not ignore_tail and self.peek():
+            raise Exception("expected end of input")
         return node
 
     def parse_list(self):
-        node = self.parse_equality()
-        if "," in self.peek():
-            expr_list = [node]
+        nodes = []
+        if self.peek():
+            nodes.append(self.parse_expr())
             while "," in self.peek():
                 self.advance()
-                node = self.parse_equality()
-                expr_list.append(node)
-            node = ASTNode(ASTTypes.ExpressionList)
-            node.expr_list = expr_list
-        return node
+                node = self.parse_expr()
+                nodes.append(node)
+        return nodes
 
-    def parse_equality(self):
+    def parse_expr(self):
         return self.parse_comparison()
 
     def parse_comparison(self):
@@ -256,27 +258,31 @@ class CodyBasicParser:
 
         # (3) parse other parts
         if c.command_type in ("REM", "NEXT", "RETURN", "END"):
-            pass
+            if other:
+                raise Exception("expected end of line")
         elif c.command_type == "ASSIGNMENT":
             name, expression = other.split("=", 1)
             c.lvalue = self.parse(name)
             c.rvalue = self.parse(expression)
         elif c.command_type == "POKE":
-            pass  # TODO: parse Expression
+            c.address, c.expression = self.parse(other, list=True)
         elif c.command_type == "GOSUB":
             c.expression = self.parse(other)
         elif c.command_type == "PRINT":
-            c.expression = self.parse(other)
-            if other.endswith(";"):  # page 249, semicolon = no new line
+            c.expressions = self.parse(other, list=True, ignore_tail=True)
+            if self.peek() == ";":  # page 249, semicolon = no new line
+                self.advance()
                 c.no_new_line = True
             else:
                 c.no_new_line = False
+            if self.peek():
+                raise Exception("expected end of line")
         elif c.command_type == "IF":
             condition, statement = other.split("THEN", 1)
             c.condition = self.parse(condition)
             c.command = self.parse_statement(statement)
         elif c.command_type == "INPUT":
-            c.expression = self.parse(other)
+            c.expressions = self.parse(other, list=True)
         elif c.command_type == "GOTO":
             c.expression = self.parse(other)
         elif c.command_type == "FOR":
@@ -300,7 +306,7 @@ class CodyBasicParser:
         for line in lines:
             line = line.strip()
             if not line:
-                continue
+                continue  # skip empty lines
             c = self.parse_line(line)
             parsed_commands.append(c)
         return parsed_commands
