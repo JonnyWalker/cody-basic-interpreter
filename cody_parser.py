@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class ASTTypes(Enum):
     IntegerLiteral = 1
     StringLiteral = 2
@@ -17,43 +18,57 @@ class ASTTypes(Enum):
 
 
 # TODO: also use an enum
-commands = ["REM", "POKE", "GOSUB", "PRINT", "IF", "END",
-            "INPUT", "GOTO", "NEXT", "FOR", "RETURN"]
+commands = [
+    "REM",
+    "POKE",
+    "GOSUB",
+    "PRINT",
+    "IF",
+    "END",
+    "INPUT",
+    "GOTO",
+    "NEXT",
+    "FOR",
+    "RETURN",
+]
+
 
 class Command:
-    def __init__(self, line_number, command_type):
-        self.line_number = line_number
+    def __init__(self, command_type):
+        self.line_number = None
         self.command_type = command_type
+
 
 class ASTNode:
     def __init__(self, ast_type):
         self.ast_type = ast_type
+
 
 class CodyBasicParser:
     def peek(self):
         if self.is_eol():
             return ""
         return self.string[self.pos]
-    
+
     def advance(self):
         self.pos += 1
 
     def is_eol(self):
         return len(self.string) == self.pos
-    
+
     def parse(self, string):
         self.pos = 0
         # TODO: remove spaces
-        self.string = string    
+        self.string = string
         node = self.parse_list()
         return node
-    
+
     def parse_list(self):
         node = self.parse_equality()
         if "," in self.peek():
             expr_list = [node]
             while "," in self.peek():
-                self.advance()        
+                self.advance()
                 node = self.parse_equality()
                 expr_list.append(node)
             node = ASTNode(ASTTypes.ExpressionList)
@@ -61,7 +76,7 @@ class CodyBasicParser:
         return node
 
     def parse_equality(self):
-        return self.parse_comparision()    
+        return self.parse_comparision()
 
     def parse_comparision(self):
         left = self.parse_term()
@@ -122,18 +137,18 @@ class CodyBasicParser:
             node.left = left
             node.right = right
             return node
-        return left   
+        return left
 
     def parse_unary(self):
         return self.parse_primary()
-    
+
     def parse_primary(self):
         if '"' == self.peek():
             node = self.parse_string_literal()
         elif self.peek().isdigit():
             node = self.parse_integer_literal()
         elif self.peek().isalpha():
-            node = self.parse_variable() 
+            node = self.parse_variable()
         else:
             print("parse error")
         return node
@@ -151,7 +166,7 @@ class CodyBasicParser:
         if node.value >= -32768 and node.value <= 32767:
             return node
         else:
-            return node # TODO fix invalid bounds (-32768 to 32767)            
+            return node  # TODO fix invalid bounds (-32768 to 32767)
 
     def parse_string_literal(self):
         assert '"' == self.peek()
@@ -167,7 +182,7 @@ class CodyBasicParser:
         node = ASTNode(ASTTypes.StringLiteral)
         node.literal = literal
         return node
-    
+
     def parse_variable(self):
         name = self.peek()
         self.advance()
@@ -190,29 +205,21 @@ class CodyBasicParser:
             node = ASTNode(ASTTypes.ArrayExpression)
             node.subnode = subnode
             node.index = int(index)
-        return node           
+        return node
 
-
-    def parse_command(self, line):
-        # (0) split at first space, which musst be after the line numer
-        splitted = line.split(" ", 1)
-        line_number = int(splitted[0])
-        
+    def parse_statement(self, command):
         # (1) parse command type
-        is_assignment = True
-        for command in commands:
-            if splitted[1].startswith(command):
-                is_assignment = False
-                command_type = command
-                rest = splitted[1][len(command):]
+        for command_type in commands:
+            if command.startswith(command_type):
+                rest = command[len(command_type) :]
                 break
-        if is_assignment: # special parsing case for assignments 
-            if "=" in splitted[1]:
+        else:  # special parsing case for assignments
+            if "=" in command:
                 command_type = "ASSIGNMENT"
-                rest = splitted[1]
+                rest = command
             else:
-                raise NotImplementedError("error! unknown command:"+splitted[1])
-        c = Command(line_number, command_type)
+                raise NotImplementedError("error! unknown command: " + command)
+        c = Command(command_type)
 
         # (2) remove spaces from rest, except in string literal
         other = ""
@@ -226,53 +233,58 @@ class CodyBasicParser:
             other += char
 
         # (3) parse other parts
-        if c.command_type == "ASSIGNMENT":
-            name, expression = other.split("=")
-            c.lvalue = self.parse(name)  
+        if c.command_type in ("REM", "NEXT", "RETURN", "END"):
+            pass
+        elif c.command_type == "ASSIGNMENT":
+            name, expression = other.split("=", 1)
+            c.lvalue = self.parse(name)
             c.rvalue = self.parse(expression)
         elif c.command_type == "POKE":
-            pass # TODO: parse Expression
+            pass  # TODO: parse Expression
         elif c.command_type == "GOSUB":
             c.expression = self.parse(other)
         elif c.command_type == "PRINT":
             c.expression = self.parse(other)
-            if ";" == other[-1]: # page 249, semicolon = no new line
+            if other.endswith(";"):  # page 249, semicolon = no new line
                 c.no_new_line = True
             else:
                 c.no_new_line = False
         elif c.command_type == "IF":
-            condition, _ = other.split("THEN")
-            _, statement = line.split("THEN", 1)
+            condition, statement = other.split("THEN", 1)
             c.condition = self.parse(condition)
-             # FIXME: remove fake line nubmer hack
-            c.command = self.parse_command("000"+ statement)
+            c.command = self.parse_statement(statement)
         elif c.command_type == "INPUT":
             c.expression = self.parse(other)
         elif c.command_type == "GOTO":
             c.expression = self.parse(other)
-        elif c.command_type == "NEXT":
-            pass
         elif c.command_type == "FOR":
-            assignment, limit = other.split("TO")
-            c.assignment = self.parse_command("001 "+ assignment)
+            assignment, limit = other.split("TO", 1)
+            c.assignment = self.parse_statement(assignment)
             c.limit = self.parse(limit)
-        elif c.command_type == "RETURN":
-            pass
-        elif c.command_type == "END":
-            pass    
+        else:
+            raise NotImplementedError(f"unknown command type {c.command_type}")
         return c
 
-    def parse_program(self, code):
+    def parse_line(self, line):
+        # (0) split at first space, which must be after the line number
+        line_number, command = line.split(" ", 1)
+        line_number = int(line_number)
+        cmd = self.parse_statement(command)
+        cmd.line_number = line_number
+        return cmd
+
+    def parse_program(self, lines):
         parsed_commands = []
-        for command in code:
-            c = self.parse_command(command)
-            parsed_commands.append(c) 
-        return parsed_commands   
+        for line in lines:
+            c = self.parse_line(line)
+            parsed_commands.append(c)
+        return parsed_commands
 
     def parse_file(self, filename):
-        code = []
         with open(filename) as f:
-            for line in f:
-                code.append(line)
-        return self.parse_program(code)
-                
+            lines = f.readlines()
+        return self.parse_program(lines)
+
+    def parse_string(self, code: str):
+        lines = code.splitlines()
+        return self.parse_program(lines)

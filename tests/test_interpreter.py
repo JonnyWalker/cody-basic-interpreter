@@ -6,7 +6,7 @@ from cody_interpreter import Interpreter
 def test_simple_add():
     code = '10 PRINT 3+4' # book page 247
     parser = CodyBasicParser()
-    command = parser.parse_command(code)
+    command = parser.parse_line(code)
     interp = Interpreter()
     interp.run_command(command)
     assert 7 in interp.cody_output_log
@@ -14,7 +14,7 @@ def test_simple_add():
 def test_hello_world():
     code = '10 PRINT "Hello"'
     parser = CodyBasicParser()
-    command = parser.parse_command(code)
+    command = parser.parse_line(code)
     interp = Interpreter()
     interp.run_command(command)
     assert "Hello" in interp.cody_output_log
@@ -22,7 +22,7 @@ def test_hello_world():
 def test_no_new_line_print():
     code = '10 PRINT "WHAT IS YOUR NAME";' # book page 250
     parser = CodyBasicParser()
-    command = parser.parse_command(code)
+    command = parser.parse_line(code)
     interp = Interpreter()
     interp.run_command(command)
     assert "WHAT IS YOUR NAME" in interp.cody_output_log 
@@ -30,7 +30,7 @@ def test_no_new_line_print():
 def test_expression_list():
     code = '50 PRINT "CODY"," IS ","14"," YEARS OLD."' # book page 250 (modified)
     parser = CodyBasicParser()
-    command = parser.parse_command(code)
+    command = parser.parse_line(code)
     interp = Interpreter()
     interp.run_command(command)
     assert "CODY IS 14 YEARS OLD." in interp.cody_output_log
@@ -38,7 +38,7 @@ def test_expression_list():
 def test_array_expression():
     code = '10 A(0)=10' # book page 253
     parser = CodyBasicParser()
-    command = parser.parse_command(code)
+    command = parser.parse_line(code)
     interp = Interpreter()
     interp.run_command(command)
     assert interp.int_arrays["A"][0] == 10
