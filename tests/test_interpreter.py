@@ -176,3 +176,48 @@ def test_print():
     interp = Interpreter()
     interp.run_code(parsed_code)
     assert interp.cody_output_log == ["1", "23", "45678", "", "AB"]
+
+
+def test_math_expr():
+    code = """
+10 PRINT 4+5*6-10
+"""
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_string(code)
+    interp = Interpreter()
+    interp.run_code(parsed_code)
+    assert interp.cody_output_log == ["24"]
+
+
+def test_math_expr_parens():
+    code = """
+10 PRINT 3*((8+2)/2)
+"""
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_string(code)
+    interp = Interpreter()
+    interp.run_code(parsed_code)
+    assert interp.cody_output_log == ["15"]
+
+
+def test_math_expr_unary_minus_1():
+    code = """
+10 A=1
+20 PRINT -A
+"""
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_string(code)
+    interp = Interpreter()
+    interp.run_code(parsed_code)
+    assert interp.cody_output_log == ["-1"]
+
+
+def test_math_expr_unary_minus_2():
+    code = """
+10 PRINT -(1+2)
+"""
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_string(code)
+    interp = Interpreter()
+    interp.run_code(parsed_code)
+    assert interp.cody_output_log == ["-3"]

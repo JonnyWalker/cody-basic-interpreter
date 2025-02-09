@@ -29,65 +29,50 @@ class Interpreter:
             self.string_arrays[target.name] = array
 
     def eval(self, node):
-        return self.eval_comparison(node)
-
-    def eval_comparison(self, node):
         if node.ast_type == ASTTypes.Equal:
-            left = self.eval_term(node.left)
-            right = self.eval_term(node.right)
+            left = self.eval(node.left)
+            right = self.eval(node.right)
             return left == right
         elif node.ast_type == ASTTypes.NotEqual:
-            left = self.eval_term(node.left)
-            right = self.eval_term(node.right)
+            left = self.eval(node.left)
+            right = self.eval(node.right)
             return left != right
         elif node.ast_type == ASTTypes.Less:
-            left = self.eval_term(node.left)
-            right = self.eval_term(node.right)
+            left = self.eval(node.left)
+            right = self.eval(node.right)
             return left < right
         elif node.ast_type == ASTTypes.LessEqual:
-            left = self.eval_term(node.left)
-            right = self.eval_term(node.right)
+            left = self.eval(node.left)
+            right = self.eval(node.right)
             return left <= right
         elif node.ast_type == ASTTypes.Greater:
-            left = self.eval_term(node.left)
-            right = self.eval_term(node.right)
+            left = self.eval(node.left)
+            right = self.eval(node.right)
             return left > right
         elif node.ast_type == ASTTypes.GreaterEqual:
-            left = self.eval_term(node.left)
-            right = self.eval_term(node.right)
+            left = self.eval(node.left)
+            right = self.eval(node.right)
             return left >= right
-        else:
-            return self.eval_term(node)
-
-    def eval_term(self, node):
-        if node.ast_type == ASTTypes.BinaryAdd:
-            left = self.eval_factor(node.left)
-            right = self.eval_factor(node.right)
+        elif node.ast_type == ASTTypes.BinaryAdd:
+            left = self.eval(node.left)
+            right = self.eval(node.right)
             return left + right
         elif node.ast_type == ASTTypes.BinarySub:
-            left = self.eval_factor(node.left)
-            right = self.eval_factor(node.right)
-            return left + right
-        else:
-            return self.eval_factor(node)
-
-    def eval_factor(self, node):
-        if node.ast_type == ASTTypes.BinaryMul:
-            left = self.eval_unary(node.left)
-            right = self.eval_unary(node.right)
+            left = self.eval(node.left)
+            right = self.eval(node.right)
+            return left - right
+        elif node.ast_type == ASTTypes.BinaryMul:
+            left = self.eval(node.left)
+            right = self.eval(node.right)
             return left * right
         elif node.ast_type == ASTTypes.BinaryDiv:
-            left = self.eval_unary(node.left)
-            right = self.eval_unary(node.right)
+            left = self.eval(node.left)
+            right = self.eval(node.right)
             return left // right  # integer div
-        else:
-            return self.eval_unary(node)
-
-    def eval_unary(self, node):
-        return self.eval_primary(node)
-
-    def eval_primary(self, node):
-        if node.ast_type == ASTTypes.StringLiteral:
+        elif node.ast_type == ASTTypes.UnaryMinus:
+            expr = self.eval(node.expr)
+            return -expr
+        elif node.ast_type == ASTTypes.StringLiteral:
             return node.literal
         elif node.ast_type == ASTTypes.IntegerLiteral:
             return node.value

@@ -153,3 +153,24 @@ def test_parse_for_example():
     assert parsed_code[0].limit.ast_type == ASTTypes.IntegerLiteral
     assert parsed_code[1].command_type == "PRINT"
     assert parsed_code[2].command_type == "NEXT"
+
+
+def test_parse_math_expr():
+    code = "10 PRINT 4+5*6-10"
+    parser = CodyBasicParser()
+    command = parser.parse_line(code)
+    assert command.line_number == 10
+    assert command.command_type == "PRINT"
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.BinarySub
+    assert ast.left.ast_type == ASTTypes.BinaryAdd
+    assert ast.left.left.ast_type == ASTTypes.IntegerLiteral
+    assert ast.left.left.value == 4
+    assert ast.left.right.ast_type == ASTTypes.BinaryMul
+    assert ast.left.right.left.ast_type == ASTTypes.IntegerLiteral
+    assert ast.left.right.left.value == 5
+    assert ast.left.right.right.ast_type == ASTTypes.IntegerLiteral
+    assert ast.left.right.right.value == 6
+    assert ast.right.ast_type == ASTTypes.IntegerLiteral
+    assert ast.right.value == 10

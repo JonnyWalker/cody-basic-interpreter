@@ -6,11 +6,12 @@ from typing import Optional
 class ASTTypes(Enum):
     IntegerLiteral = auto()
     StringLiteral = auto()
-    BinaryAdd = auto()
-    BinarySub = auto()
     StringVariable = auto()
     IntegerVariable = auto()
     ArrayExpression = auto()
+    UnaryMinus = auto()
+    BinaryAdd = auto()
+    BinarySub = auto()
     BinaryMul = auto()
     BinaryDiv = auto()
     Equal = auto()
@@ -85,8 +86,6 @@ class CodyBasicParser:
         return self.parse_comparison()
 
     def parse_comparison(self):
-        left = self.parse_term()
-
         ops = {
             "=": ASTTypes.Equal,
             "<>": ASTTypes.NotEqual,
@@ -95,59 +94,70 @@ class CodyBasicParser:
             ">": ASTTypes.Greater,
             ">=": ASTTypes.GreaterEqual,
         }
-        op_type = self.find_op(ops)
-        if not op_type:
-            return left
-
-        right = self.parse_term()
-        node = ASTNode(op_type)
-        node.left = left
-        node.right = right
-        return node
+        left = self.parse_term()
+        while op_type := self.find_op(ops):
+            right = self.parse_term()
+            node = ASTNode(op_type)
+            node.left = left
+            node.right = right
+            left = node
+        return left
 
     def parse_term(self):
-        left = self.parse_factor()
-
         ops = {
             "+": ASTTypes.BinaryAdd,
             "-": ASTTypes.BinarySub,
         }
-        op_type = self.find_op(ops)
-        if not op_type:
-            return left
-
-        right = self.parse_factor()
-        node = ASTNode(op_type)
-        node.left = left
-        node.right = right
-        return node
+        left = self.parse_factor()
+        while op_type := self.find_op(ops):
+            right = self.parse_factor()
+            node = ASTNode(op_type)
+            node.left = left
+            node.right = right
+            left = node
+        return left
 
     def parse_factor(self):
-        left = self.parse_unary()
-
         ops = {
             "*": ASTTypes.BinaryMul,
             "/": ASTTypes.BinaryDiv,
         }
-        op_type = self.find_op(ops)
-        if not op_type:
-            return left
 
-        right = self.parse_unary()
-        node = ASTNode(op_type)
-        node.left = left
-        node.right = right
-        return node
+        left = self.parse_unary()
+        while op_type := self.find_op(ops):
+            right = self.parse_unary()
+            node = ASTNode(op_type)
+            node.left = left
+            node.right = right
+            left = node
+        return left
 
     def parse_unary(self):
-        return self.parse_primary()
+        ops = {
+            "-": ASTTypes.UnaryMinus,
+        }
+
+        op_type = self.find_op(ops)
+        if not op_type:
+            return self.parse_primary()
+
+        expr = self.parse_unary()
+        node = ASTNode(op_type)
+        node.expr = expr
+        return node
 
     def parse_primary(self):
-        if '"' == self.peek():
+        c = self.peek()
+        if c == '"':
             node = self.parse_string_literal()
-        elif self.peek().isdigit():
+        elif c == "(":
+            self.advance()
+            node = self.parse_expr()
+            assert self.peek() == ")"
+            self.advance()
+        elif c.isdigit():
             node = self.parse_integer_literal()
-        elif self.peek().isalpha():
+        elif c.isalpha():
             node = self.parse_variable()
         else:
             raise Exception("parse error")
