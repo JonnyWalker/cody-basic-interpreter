@@ -1,12 +1,15 @@
 # python -m pytest -s
 from cody_parser import CodyBasicParser
 from cody_interpreter import Interpreter, TestIO
+from typing import Optional, Iterable
 
 
-def run_code(code: str) -> Interpreter:
+def run_code(
+    code: str, inputs: Optional[Iterable[str]] = None, print_inputs: bool = False
+) -> Interpreter:
     parser = CodyBasicParser()
     parsed = parser.parse_string(code)
-    interp = Interpreter(TestIO())
+    interp = Interpreter(TestIO(inputs, print_inputs))
     interp.run_code(parsed)
     return interp
 
@@ -41,6 +44,22 @@ def test_array_expression():
     assert interp.int_arrays["A"][0] == 10
 
 
+def test_io_example():
+    code = """
+10 PRINT "WHAT IS YOUR NAME";
+20 INPUT N$
+30 PRINT "HOW OLD ARE YOU";
+40 INPUT A
+50 PRINT N$," IS ",A," YEARS OLD."
+"""  # book page 250-251
+    interp = run_code(code, ["CODY", "14"], print_inputs=True)
+    assert interp.io.output_log == [
+        "WHAT IS YOUR NAME? CODY",
+        "HOW OLD ARE YOU? 14",
+        "CODY IS 14 YEARS OLD.",
+    ]
+
+
 def test_variable_example():
     code = """
 10 A(0)=10
@@ -65,6 +84,28 @@ def test_variable_example2():
     assert interp.io.output_log == ["HELLO WORLD!"]
 
 
+def test_if_example1():
+    code = """
+10 INPUT N
+20 IF N<0 THEN PRINT "NEGATIVE"
+30 IF N=0 THEN PRINT "ZERO"
+40 IF N>0 THEN PRINT "POSITIVE"
+"""  # book page 255
+    interp = run_code(code, ["3"])
+    assert interp.io.output_log == ["POSITIVE"]
+
+
+def test_if_example2():
+    code = """
+10 INPUT S$
+20 IF S$<"B" THEN PRINT "LESS"
+30 IF S$="B" THEN PRINT "EQUAL"
+40 IF S$>"B" THEN PRINT "GREATER"
+"""  # book page 256
+    interp = run_code(code, ["BA"])
+    assert interp.io.output_log == ["GREATER"]
+
+
 def test_goto_example():
     code = """
 10 PRINT "A"
@@ -84,7 +125,7 @@ def test_gosub_example():
 40 END
 50 PRINT "B"
 60 RETURN
-"""  # book page 257
+"""  # book page 258
     interp = run_code(code)
     assert interp.io.output_log == ["A", "B", "C"]
 
@@ -190,3 +231,24 @@ def test_math_expr_unary_minus_2():
 """  # book page 272
     interp = run_code(code)
     assert interp.io.output_log == ["-40"]
+
+
+def test_string_concat():
+    code = """
+10 A$="HELLO"
+20 B$="WORLD"
+30 C$=A$+", "+B$+"!"
+40 PRINT C$
+"""  # book page 277
+    interp = run_code(code)
+    assert interp.io.output_log == ["HELLO, WORLD!"]
+
+
+def test_string_comparisons():
+    code = """
+10 INPUT A$
+20 INPUT B$
+30 IF B$=A$+"!" THEN PRINT "MATCH"
+"""  # book page 278
+    interp = run_code(code, ["HELLO", "HELLO!"])
+    assert interp.io.output_log == ["MATCH"]

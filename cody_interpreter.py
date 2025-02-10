@@ -190,8 +190,11 @@ class StdIO(IO):
 
 
 class TestIO(IO):
-    def __init__(self, inputs: Optional[Iterable[str]] = None):
+    def __init__(
+        self, inputs: Optional[Iterable[str]] = None, print_inputs: bool = False
+    ):
         self.inputs = list(inputs) if inputs else None
+        self.print_inputs: bool = print_inputs
         self.output_log: list[str] = []
         # flag to indicate that the last input ended on a newline
         self.new_line: bool = True
@@ -207,4 +210,12 @@ class TestIO(IO):
         self.new_line = True
 
     def input(self) -> str:
-        return str(self.inputs.pop(0))
+        result = str(self.inputs.pop(0))
+        if self.print_inputs:
+            self.print("? ")
+            self.print(result)
+            self.println()
+        elif not self.new_line:
+            # print new line after custom prompt if required
+            self.println()
+        return result
