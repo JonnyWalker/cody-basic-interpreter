@@ -252,3 +252,20 @@ def test_string_comparisons():
 """  # book page 278
     interp = run_code(code, ["HELLO", "HELLO!"])
     assert interp.io.output_log == ["MATCH"]
+
+
+def test_data():
+    code = """
+10 READ I
+20 IF I<0 THEN GOTO 60
+30 T=T+I
+40 C=C+1
+50 GOTO 10
+60 PRINT "TOTAL ",T
+70 PRINT "COUNT ",C
+80 PRINT "AVERAGE ",T/C
+90 DATA 3,10,12,7,6
+100 DATA 3,15,8,2,-1
+"""  # book page 299
+    interp = run_code(code)
+    assert interp.io.output_log == ["TOTAL 66", "COUNT 9", "AVERAGE 7"]

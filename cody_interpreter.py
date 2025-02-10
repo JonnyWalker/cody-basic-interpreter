@@ -21,6 +21,7 @@ class Interpreter:
         self.call_stack = []
         self.loop_stack = []
         self.io = io if io is not None else StdIO()
+        self.reset_data_pos()
 
     def compute_target(self, node):
         if node.ast_type == ASTTypes.ArrayExpression:
@@ -31,15 +32,16 @@ class Interpreter:
             target = node
         return index, target
 
-    def add_value(self, target, value, index):
+    def add_value(self, target, value, index, convert_int=False):
         if target.ast_type == ASTTypes.IntegerVariable:
-            array = self.int_arrays.get(target.name, dict())
-            array[index] = int(value)
-            self.int_arrays[target.name] = array
+            if convert_int:
+                value = int(value)
+            else:
+                assert isinstance(value, int)
+            self.int_arrays.setdefault(target.name, {})[index] = value
         elif target.ast_type == ASTTypes.StringVariable:
-            array = self.string_arrays.get(target.name, dict())
-            array[index] = value
-            self.string_arrays[target.name] = array
+            assert isinstance(value, str)
+            self.string_arrays.setdefault(target.name, {})[index] = value
 
     def eval(self, node):
         if node.ast_type == ASTTypes.Equal:
@@ -96,16 +98,18 @@ class Interpreter:
         ):
             index, target = self.compute_target(node)
             if target.ast_type == ASTTypes.IntegerVariable:
-                return self.int_arrays[target.name][index]
+                array = self.int_arrays.setdefault(target.name, {})
+                return array.setdefault(index, 0)
             elif target.ast_type == ASTTypes.StringVariable:
-                return self.string_arrays[target.name][index]
+                array = self.string_arrays.setdefault(target.name, {})
+                return array.setdefault(index, "")
             else:
                 raise AssertionError
         else:
             raise Exception("eval error")
 
     def run_command(self, command):
-        if command.command_type == "REM":
+        if command.command_type in ("REM", "DATA"):
             pass  # ignore line
         elif command.command_type == "ASSIGNMENT":
             index, target = self.compute_target(command.lvalue)
@@ -125,7 +129,7 @@ class Interpreter:
             for expr in command.expressions:
                 index, target = self.compute_target(expr)
                 value = self.io.input()
-                self.add_value(target, value, index)
+                self.add_value(target, value, index, convert_int=True)
         elif command.command_type == "IF":
             value = self.eval(command.condition)
             if value:
@@ -166,6 +170,15 @@ class Interpreter:
             self.next_index = self.call_stack.pop()
         elif command.command_type == "END":
             self.next_index = len(self.code)  # FIXME: remove hack
+        elif command.command_type == "READ":
+            for expr in command.expressions:
+                index, target = self.compute_target(expr)
+                # only integer variables supported
+                assert target.ast_type == ASTTypes.IntegerVariable
+                value = self.read_next_data_value()
+                self.add_value(target, value, index)
+        elif command.command_type == "RESTORE":
+            self.reset_data_pos()
         else:
             raise NotImplementedError(f"unknown command {command.command_type}")
 
@@ -176,6 +189,22 @@ class Interpreter:
             command = code[self.next_index]
             self.next_index += 1
             self.run_command(command)
+
+    def reset_data_pos(self):
+        self.data_pos = (0, 0)
+
+    def read_next_data_value(self):
+        # TODO: precompute data positions
+        line, index = self.data_pos
+        while True:
+            # this will throw an (expected) exception when out of bounds
+            stmt = self.code[line]
+            if stmt.command_type == "DATA" and index < len(stmt.expressions):
+                result = self.eval(stmt.expressions[index])
+                self.data_pos = line, index + 1
+                return result
+            line += 1
+            index = 0
 
 
 class StdIO(IO):
