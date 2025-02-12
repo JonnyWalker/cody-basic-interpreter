@@ -195,38 +195,69 @@ def test_parse_builtin_abs():
 def test_parse_builtin_sqrt():
     code = "10 PRINT SQR(10)" # book page 273
     parser = CodyBasicParser()
-    with pytest.raises(NotImplementedError) as e:
-        command = parser.parse_line(code)
-    assert "built-in SQR not implemeted yet" in str(e.value)
+    command = parser.parse_line(code)
+    assert command.line_number == 10
+    assert command.command_type == "PRINT"
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.BuiltInCall
+    assert ast.name == "SQR"
+    assert ast.expressions[0].ast_type == ASTTypes.IntegerLiteral  
+    assert ast.expressions[0].value == 10
 
 
 def test_parse_builtin_mod():
     code = "10 PRINT MOD(8,5)" # book page 273
     parser = CodyBasicParser()
-    with pytest.raises(NotImplementedError) as e:
-        command = parser.parse_line(code)
-    assert "built-in MOD not implemeted yet" in str(e.value)
+    command = parser.parse_line(code)
+    assert command.line_number == 10
+    assert command.command_type == "PRINT"
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.BuiltInCall
+    assert ast.name == "MOD"
+    assert ast.expressions[0].ast_type == ASTTypes.IntegerLiteral  
+    assert ast.expressions[0].value == 8
+    assert ast.expressions[1].ast_type == ASTTypes.IntegerLiteral  
+    assert ast.expressions[1].value == 5
 
 
 def test_parse_builtin_rnd_no_arg():
     code = "10 PRINT RND()" # book page 274
     parser = CodyBasicParser()
-    with pytest.raises(NotImplementedError) as e:
-        command = parser.parse_line(code)
-    assert "built-in RND not implemeted yet" in str(e.value)
+    command = parser.parse_line(code)
+    assert command.line_number == 10
+    assert command.command_type == "PRINT"
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.BuiltInCall
+    assert ast.name == "RND"
+    assert ast.expressions == []
 
 
 def test_parse_builtin_rnd():
     code = "10 PRINT RND(10)" # book page 274
     parser = CodyBasicParser()
-    with pytest.raises(NotImplementedError) as e:
-        command = parser.parse_line(code)
-    assert "built-in RND not implemeted yet" in str(e.value)
+    command = parser.parse_line(code)
+    assert command.line_number == 10
+    assert command.command_type == "PRINT"
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.BuiltInCall
+    assert ast.name == "RND"
+    assert ast.expressions[0].ast_type == ASTTypes.IntegerLiteral  
+    assert ast.expressions[0].value == 10
 
 
 def test_parse_builtin_rnd_ti_arg():
     code = "10 PRINT RND(TI)" # book page 274
     parser = CodyBasicParser()
-    with pytest.raises(NotImplementedError) as e:
-        command = parser.parse_line(code)
-    assert "built-in RND not implemeted yet" in str(e.value)
+    command = parser.parse_line(code)
+    assert command.line_number == 10
+    assert command.command_type == "PRINT"
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.BuiltInCall
+    assert ast.name == "RND"
+    assert ast.expressions[0].ast_type == ASTTypes.BuiltInVariable  
+    assert ast.expressions[0].name == "TI"
