@@ -261,3 +261,27 @@ def test_parse_builtin_rnd_ti_arg():
     assert ast.name == "RND"
     assert ast.expressions[0].ast_type == ASTTypes.BuiltInVariable  
     assert ast.expressions[0].name == "TI"
+
+
+def test_parse_bitwise_example():
+    code = [
+        "10 INPUT A",
+        "20 INPUT B",
+        "30 PRINT \"NOT \",NOT(A)",
+        "40 PRINT \"AND \",AND(A,B)",
+        "50 PRINT \"OR \",OR(A,B)",
+        "60 PRINT \"XOR \",XOR(A,B)",      
+    ]  # book page 275
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[0].command_type == "INPUT"
+    assert parsed_code[1].command_type == "INPUT"
+    assert parsed_code[2].command_type == "PRINT"
+    assert parsed_code[2].expressions[1].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[2].expressions[1].name == "NOT"
+    assert parsed_code[3].expressions[1].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[3].expressions[1].name == "AND"
+    assert parsed_code[4].expressions[1].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[4].expressions[1].name == "OR"
+    assert parsed_code[5].expressions[1].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[5].expressions[1].name == "XOR"

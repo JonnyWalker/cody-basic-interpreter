@@ -48,9 +48,13 @@ commands = [
 
 builtin_functions = [
     "ABS",
+    "AND",
     "MOD",
+    "NOT",
+    "OR",
     "RND",
-    "SQR"
+    "SQR",
+    "XOR"
 ]
 
 builtin_vars = [
