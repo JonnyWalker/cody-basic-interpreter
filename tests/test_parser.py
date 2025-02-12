@@ -180,17 +180,24 @@ def test_parse_math_expr():
 def test_parse_builtin_abs():
     code = "10 PRINT ABS(-10)" # book page 273
     parser = CodyBasicParser()
-    with pytest.raises(NotImplementedError) as e:
-        command = parser.parse_line(code)
-    assert "built-in not implemeted yet" in str(e.value)
-
+    command = parser.parse_line(code)
+    assert command.line_number == 10
+    assert command.command_type == "PRINT"
+    assert len(command.expressions) == 1
+    ast = command.expressions[0]
+    assert ast.ast_type == ASTTypes.BuiltInCall
+    assert ast.name == "ABS"
+    assert ast.expressions[0].ast_type == ASTTypes.UnaryMinus
+    assert ast.expressions[0].expr.ast_type == ASTTypes.IntegerLiteral   
+    assert ast.expressions[0].expr.value == 10
+ 
 
 def test_parse_builtin_sqrt():
     code = "10 PRINT SQR(10)" # book page 273
     parser = CodyBasicParser()
     with pytest.raises(NotImplementedError) as e:
         command = parser.parse_line(code)
-    assert "built-in not implemeted yet" in str(e.value)
+    assert "built-in SQR not implemeted yet" in str(e.value)
 
 
 def test_parse_builtin_mod():
@@ -198,7 +205,7 @@ def test_parse_builtin_mod():
     parser = CodyBasicParser()
     with pytest.raises(NotImplementedError) as e:
         command = parser.parse_line(code)
-    assert "built-in not implemeted yet" in str(e.value)
+    assert "built-in MOD not implemeted yet" in str(e.value)
 
 
 def test_parse_builtin_rnd_no_arg():
@@ -206,7 +213,7 @@ def test_parse_builtin_rnd_no_arg():
     parser = CodyBasicParser()
     with pytest.raises(NotImplementedError) as e:
         command = parser.parse_line(code)
-    assert "built-in not implemeted yet" in str(e.value)
+    assert "built-in RND not implemeted yet" in str(e.value)
 
 
 def test_parse_builtin_rnd():
@@ -214,7 +221,7 @@ def test_parse_builtin_rnd():
     parser = CodyBasicParser()
     with pytest.raises(NotImplementedError) as e:
         command = parser.parse_line(code)
-    assert "built-in not implemeted yet" in str(e.value)
+    assert "built-in RND not implemeted yet" in str(e.value)
 
 
 def test_parse_builtin_rnd_ti_arg():
@@ -222,4 +229,4 @@ def test_parse_builtin_rnd_ti_arg():
     parser = CodyBasicParser()
     with pytest.raises(NotImplementedError) as e:
         command = parser.parse_line(code)
-    assert "built-in not implemeted yet" in str(e.value)
+    assert "built-in RND not implemeted yet" in str(e.value)

@@ -4,6 +4,7 @@ from typing import Optional
 
 @unique
 class ASTTypes(Enum):
+    BuiltInCall = auto()
     IntegerLiteral = auto()
     StringLiteral = auto()
     StringVariable = auto()
@@ -41,6 +42,11 @@ commands = [
     "RESTORE",
     "POKE",
     "SYS",
+]
+
+
+builtins = [
+    "ABS"
 ]
 
 
@@ -164,7 +170,7 @@ class CodyBasicParser:
         elif c.isdigit():
             node = self.parse_integer_literal()
         elif c.isalpha():
-            node = self.parse_variable()
+            node = self.parse_variable_or_builtin()
         else:
             raise Exception("parse error")
         return node
@@ -199,7 +205,7 @@ class CodyBasicParser:
         node.literal = literal
         return node
 
-    def parse_variable(self):
+    def parse_variable_or_builtin(self):
         name = self.peek()
         self.advance()
         if "$" == self.peek():
@@ -209,8 +215,28 @@ class CodyBasicParser:
             node = ASTNode(ASTTypes.StringVariable)
             node.name = name
         elif self.peek().isalpha():
-            # musst be a built-in like MOD(8,5)
-            raise NotImplementedError("built-in not implemeted yet")
+            while self.peek().isalpha():
+                name += self.peek()
+                self.advance()
+            if "$" == self.peek():
+                self.advance()
+                builtin_type = str
+            else:
+                builtin_type = int
+            if name in builtins:
+                # TODO: Implement builtin vars like TI 
+                assert "(" == self.peek()
+                self.advance()
+                expressions = self.parse_list()
+                assert ")" == self.peek()
+                self.advance()
+                node = ASTNode(ASTTypes.BuiltInCall)
+                node.name = name
+                node.expressions = expressions
+                node.builtin_type = builtin_type
+                return node # avoid array check. FIXME: this return is bad control flow 
+            else:
+                raise NotImplementedError(f"built-in {name} not implemeted yet")
         else:
             # book page 252:
             # "Number Variables are represented by a letter between A and Z"
