@@ -1,4 +1,5 @@
 # python -m pytest -s
+import pytest
 from cody_parser import CodyBasicParser
 from cody_parser import ASTTypes
 
@@ -174,3 +175,51 @@ def test_parse_math_expr():
     assert ast.left.right.right.value == 6
     assert ast.right.ast_type == ASTTypes.IntegerLiteral
     assert ast.right.value == 10
+
+
+def test_parse_builtin_abs():
+    code = "10 PRINT ABS(-10)" # book page 273
+    parser = CodyBasicParser()
+    with pytest.raises(NotImplementedError) as e:
+        command = parser.parse_line(code)
+    assert "built-in not implemeted yet" in str(e.value)
+
+
+def test_parse_builtin_sqrt():
+    code = "10 PRINT SQR(10)" # book page 273
+    parser = CodyBasicParser()
+    with pytest.raises(NotImplementedError) as e:
+        command = parser.parse_line(code)
+    assert "built-in not implemeted yet" in str(e.value)
+
+
+def test_parse_builtin_mod():
+    code = "10 PRINT MOD(8,5)" # book page 273
+    parser = CodyBasicParser()
+    with pytest.raises(NotImplementedError) as e:
+        command = parser.parse_line(code)
+    assert "built-in not implemeted yet" in str(e.value)
+
+
+def test_parse_builtin_rnd_no_arg():
+    code = "10 PRINT RND()" # book page 274
+    parser = CodyBasicParser()
+    with pytest.raises(NotImplementedError) as e:
+        command = parser.parse_line(code)
+    assert "built-in not implemeted yet" in str(e.value)
+
+
+def test_parse_builtin_rnd():
+    code = "10 PRINT RND(10)" # book page 274
+    parser = CodyBasicParser()
+    with pytest.raises(NotImplementedError) as e:
+        command = parser.parse_line(code)
+    assert "built-in not implemeted yet" in str(e.value)
+
+
+def test_parse_builtin_rnd_ti_arg():
+    code = "10 PRINT RND(TI)" # book page 274
+    parser = CodyBasicParser()
+    with pytest.raises(NotImplementedError) as e:
+        command = parser.parse_line(code)
+    assert "built-in not implemeted yet" in str(e.value)
