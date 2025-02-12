@@ -56,6 +56,7 @@ builtin_functions = [
     "MOD",
     "NOT",
     "OR",
+    "PEEK",
     "RND",
     "SQR",
     "SUB$",

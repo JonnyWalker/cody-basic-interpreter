@@ -448,3 +448,33 @@ def test_parse_chr_call_example5():
     assert parsed_code[2].expressions[2].ast_type == ASTTypes.BuiltInCall
     assert parsed_code[2].expressions[2].name == "CHR$"
 
+
+def test_parse_ti_var():
+    code = [
+        "10 INPUT D",
+        "20 D=D*60",
+        "30 I=TI",
+        "40 IF TI-I<D THEN GOTO 40",
+    ]  # book page 301
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[2].command_type == "ASSIGNMENT"
+    assert parsed_code[2].rvalue.ast_type == ASTTypes.BuiltInVariable
+    assert parsed_code[2].rvalue.name == "TI"
+
+
+def test_parse_peek_call_var():
+    code = [
+        "10 PRINT \"PRESS Q TO QUIT...\"",
+        "20 IF AND(PEEK(16),1)=1 THEN GOTO 10",
+        "30 PRINT \"Q PRESSED\"",
+    ]  # book page 301
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[1].command_type == "IF"
+    assert parsed_code[1].condition.ast_type == ASTTypes.Equal
+    assert parsed_code[1].condition.left.ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].condition.left.name == "AND"
+    assert parsed_code[1].condition.left.expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].condition.left.expressions[0].name == "PEEK"
+
