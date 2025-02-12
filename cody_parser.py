@@ -203,10 +203,17 @@ class CodyBasicParser:
         name = self.peek()
         self.advance()
         if "$" == self.peek():
+            # book page 253:
+            # "Cody BASIC also has 26 string variables A$ through Z$"
             self.advance()
             node = ASTNode(ASTTypes.StringVariable)
             node.name = name
+        elif self.peek().isalpha():
+            # musst be a built-in like MOD(8,5)
+            raise NotImplementedError("built-in not implemeted yet")
         else:
+            # book page 252:
+            # "Number Variables are represented by a letter between A and Z"
             node = ASTNode(ASTTypes.IntegerVariable)
             node.name = name
 
