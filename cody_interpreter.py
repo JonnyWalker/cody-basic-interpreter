@@ -110,7 +110,7 @@ class Interpreter:
 
     def run_command(self, command):
         if command.command_type in ("REM", "DATA"):
-            pass  # ignore line
+            pass  # ignore comments and (already precomputed) DATA values
         elif command.command_type == "ASSIGNMENT":
             index, target = self.compute_target(command.lvalue)
             value = self.eval(command.rvalue)
@@ -183,6 +183,7 @@ class Interpreter:
             raise NotImplementedError(f"unknown command {command.command_type}")
 
     def run_code(self, code):
+        self.setup_data_segment(code) # TODO: remove unexpected side-effect from run_code
         self.code = code
         self.next_index = 0
         while self.next_index < len(code):
@@ -192,20 +193,28 @@ class Interpreter:
 
     def reset_data_pos(self):
         self.data_pos = (0, 0)
+    
+    def setup_data_segment(self, code):
+        '''
+        Precomputes the DATA values by evaluating all data statements.
+        '''
+        self.data_segment = [] # values will be added by DATA statement
+        for command in code:
+            if command.command_type == "DATA":
+                values = []
+                for expr in command.expressions:
+                    value = self.eval(expr)
+                    values.append(value)
+                self.data_segment.append(values)
 
     def read_next_data_value(self):
-        # TODO: precompute data positions
         line, index = self.data_pos
-        while True:
-            # this will throw an (expected) exception when out of bounds
-            stmt = self.code[line]
-            if stmt.command_type == "DATA" and index < len(stmt.expressions):
-                result = self.eval(stmt.expressions[index])
-                self.data_pos = line, index + 1
-                return result
-            line += 1
-            index = 0
-
+        value = self.data_segment[line][index]
+        if len(self.data_segment[line]) == index + 1:
+            self.data_pos = (line + 1, 0)
+        else: # move to next "line"
+            self.data_pos = (line, index + 1)
+        return value
 
 class StdIO(IO):
     def print(self, value: str):
