@@ -219,6 +219,8 @@ class StdIO(IO):
 
 
 class TestIO(IO):
+    # https://stackoverflow.com/questions/62460557/cannot-collect-test-class-testmain-because-it-has-a-init-constructor-from
+    __test__ = False 
     def __init__(
         self, inputs: Optional[Iterable[str]] = None, print_inputs: bool = False
     ):
