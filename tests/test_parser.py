@@ -285,3 +285,63 @@ def test_parse_bitwise_example():
     assert parsed_code[4].expressions[1].name == "OR"
     assert parsed_code[5].expressions[1].ast_type == ASTTypes.BuiltInCall
     assert parsed_code[5].expressions[1].name == "XOR"
+
+
+def test_parse_sub_call_example():
+    code = [
+        "10 A$=\"POMERANIAN\"",
+        "20 PRINT SUB$(A$,0,3)",   
+    ]  # book page 279
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[1].command_type == "PRINT"
+    assert parsed_code[1].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].expressions[0].name == "SUB$"
+
+
+def test_parse_chr_call_example():
+    code = [
+        "10 PRINT CHR$(67,111,100,121)", 
+    ]  # book page 279
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[0].command_type == "PRINT"
+    assert parsed_code[0].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[0].expressions[0].name == "CHR$"
+
+
+def test_parse_val_call_example():
+    code = [
+        "10 INPUT S$", 
+        "20 N=VAL(S$)",
+        "30 PRINT N*2",
+    ]  # book page 280
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[1].command_type == "ASSIGNMENT"
+    assert parsed_code[1].rvalue.ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].rvalue.name == "VAL"
+
+
+def test_parse_len_call_example():
+    code = [
+        "10 INPUT S$", 
+        "20 PRINT LEN(S$)",
+    ]  # book page 281
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[1].command_type == "PRINT"
+    assert parsed_code[1].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].expressions[0].name == "LEN"
+
+
+def test_parse_asc_call_example():
+    code = [
+        "10 INPUT S$", 
+        "20 PRINT ASC(S$)",
+    ]  # book page 282
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[1].command_type == "PRINT"
+    assert parsed_code[1].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].expressions[0].name == "ASC"

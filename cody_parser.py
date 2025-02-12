@@ -45,15 +45,20 @@ commands = [
     "SYS",
 ]
 
-
+# TODO: add and Test STR$
 builtin_functions = [
     "ABS",
+    "ASC",
     "AND",
+    "CHR$",
+    "LEN",
     "MOD",
     "NOT",
     "OR",
     "RND",
     "SQR",
+    "SUB$",
+    "VAL",
     "XOR"
 ]
 
@@ -233,6 +238,7 @@ class CodyBasicParser:
                 self.advance()
             if "$" == self.peek():
                 self.advance()
+                name += "$"
             if name in builtin_functions:
                 assert "(" == self.peek()
                 self.advance()
