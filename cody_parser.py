@@ -50,6 +50,7 @@ builtin_functions = [
     "ABS",
     "ASC",
     "AND",
+    "AT",
     "CHR$",
     "LEN",
     "MOD",
@@ -58,6 +59,7 @@ builtin_functions = [
     "RND",
     "SQR",
     "SUB$",
+    "TAB",
     "VAL",
     "XOR"
 ]

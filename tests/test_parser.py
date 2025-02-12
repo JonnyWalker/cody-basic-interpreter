@@ -345,3 +345,106 @@ def test_parse_asc_call_example():
     assert parsed_code[1].command_type == "PRINT"
     assert parsed_code[1].expressions[0].ast_type == ASTTypes.BuiltInCall
     assert parsed_code[1].expressions[0].name == "ASC"
+
+
+def test_parse_at_call_example():
+    code = [
+        "10 FOR I=0 TO 9", 
+        "20 PRINT AT(I,I),\"HELLO, WORLD!\"",
+        "30 NEXT"
+    ]  # book page 284
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[1].command_type == "PRINT"
+    assert parsed_code[1].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].expressions[0].name == "AT"
+
+
+def test_parse_tab_call_example():
+    code = [
+        "10 FOR I=1 TO 10", 
+        "20 PRINT I,TAB(5),I*I,TAB(20),\"MESSAGE\"",
+        "30 NEXT"
+    ]  # book page 286
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[1].command_type == "PRINT"
+    assert parsed_code[1].expressions[1].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].expressions[1].name == "TAB"
+    assert parsed_code[1].expressions[3].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].expressions[3].name == "TAB"
+
+
+def test_parse_chr_call_example():
+    code = [
+        "10 PRINT CHR$(222)", 
+    ]  # book page 287
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[0].command_type == "PRINT"
+    assert parsed_code[0].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[0].expressions[0].name == "CHR$"
+
+
+def test_parse_chr_call_example2():
+    code = [
+        "10 FOR I=0 TO 15",
+        "20 PRINT CHR$(240+I),240+I",
+        "30 NEXT",
+        "40 PRINT CHR$(241)"
+    ]  # book page 287
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[1].command_type == "PRINT"
+    assert parsed_code[1].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].expressions[0].name == "CHR$"
+    assert parsed_code[3].command_type == "PRINT"
+    assert parsed_code[3].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[3].expressions[0].name == "CHR$"
+
+
+def test_parse_chr_call_example3():
+    code = [
+        "10 FOR I=0 TO 15",
+        "20 PRINT CHR$(224+I),224+I",
+        "30 NEXT",
+        "40 PRINT CHR$(230)"
+    ]  # book page 289
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[1].command_type == "PRINT"
+    assert parsed_code[1].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].expressions[0].name == "CHR$"
+    assert parsed_code[3].command_type == "PRINT"
+    assert parsed_code[3].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[3].expressions[0].name == "CHR$"
+
+
+def test_parse_chr_call_example4():
+    code = [
+        "10 INPUT S$",
+        "20 PRINT CHR$(223),S$,CHR$(223)",
+    ]  # book page 290
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[1].command_type == "PRINT"
+    assert parsed_code[1].expressions[0].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].expressions[0].name == "CHR$"
+    assert parsed_code[1].expressions[2].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].expressions[2].name == "CHR$"
+
+
+def test_parse_chr_call_example5():
+    code = [
+        "10 FOR I=0 TO 66",
+        "20 IF MOD(I,6)=0 THEN PRINT",
+        "30 PRINT 128+I,\" \",CHR$(128+I),\" \";",
+        "40 NEXT",
+        "50 PRINT"
+    ]  # book page 292
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_program(code)
+    assert parsed_code[2].command_type == "PRINT"
+    assert parsed_code[2].expressions[2].ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[2].expressions[2].name == "CHR$"
+
