@@ -62,12 +62,10 @@ builtin_functions = [
     "SUB$",
     "TAB",
     "VAL",
-    "XOR"
+    "XOR",
 ]
 
-builtin_vars = [
-    "TI"
-]
+builtin_vars = ["TI"]
 
 
 class Command:
@@ -226,59 +224,72 @@ class CodyBasicParser:
         return node
 
     def parse_variable_or_builtin(self):
-        name = self.peek()
-        self.advance()
-        if "$" == self.peek():
-            # book page 253:
-            # "Cody BASIC also has 26 string variables A$ through Z$"
-            assert len(name) == 1 # TODO: maybe the name sould include the $
+        assert self.peek().isalpha()
+        name = ""
+
+        # var name
+        while (c := self.peek()).isalpha():
+            name += c
             self.advance()
-            node = ASTNode(ASTTypes.StringVariable)
-            node.name = name
-        elif self.peek().isalpha():
-            while self.peek().isalpha():
-                name += self.peek()
-                self.advance()
-            if "$" == self.peek():
-                self.advance()
-                name += "$"
-            if name in builtin_functions:
-                assert "(" == self.peek()
-                self.advance()
-                if ")" == self.peek():
-                    expressions = [] # no args
-                else:
-                    expressions = self.parse_list()
-                assert ")" == self.peek()
-                self.advance()
-                node = ASTNode(ASTTypes.BuiltInCall)
-                node.name = name
-                node.expressions = expressions
-                return node # avoid array check. FIXME: this return is bad control flow
-            elif name in builtin_vars:
-                node = ASTNode(ASTTypes.BuiltInVariable)
-                node.name = name
-                return node # avoid array check. FIXME: this return is bad control flow
-            else:
-                raise NotImplementedError(f"built-in {name} not implemeted yet")
-        else:
+        # string suffix
+        if c == "$":
+            name += c
+            self.advance()
+
+        if name in builtin_vars:
+            param_mode = "none"
+            node = ASTNode(ASTTypes.BuiltInVariable)
+        elif name in builtin_functions:
+            param_mode = "any"
+            node = ASTNode(ASTTypes.BuiltInCall)
+        elif len(name) == 1:
             # book page 252:
             # "Number Variables are represented by a letter between A and Z"
-            assert len(name) == 1
+            param_mode = "array"
             node = ASTNode(ASTTypes.IntegerVariable)
-            node.name = name
+        elif len(name) == 2 and name[1] == "$":
+            # book page 253:
+            # "Cody BASIC also has 26 string variables A$ through Z$"
+            param_mode = "array"
+            node = ASTNode(ASTTypes.StringVariable)
+            name = name[0]  # TODO: maybe the name should include the $
+        else:
+            raise NotImplementedError(f"unknown built-in {name}")
+        node.name = name
 
-        if "(" == self.peek():
-            index = ""
-            self.advance()
-            while ")" != self.peek():
-                index += self.peek()
+        # check if variable/builtin can have parameters
+        if param_mode != "none":
+            if self.peek() == "(":
                 self.advance()
-            self.advance()
-            subnode = node
-            node = ASTNode(ASTTypes.ArrayExpression)
-            node.subnode = subnode
-            node.index = int(index)
+                if self.peek() == ")":
+                    expressions = []
+                else:
+                    expressions = self.parse_list()
+                assert self.peek() == ")"
+                self.advance()
+
+                if param_mode == "array":
+                    # TODO: do array subscripts have to be literals?
+                    assert (
+                        len(expressions) == 1
+                        and expressions[0].ast_type == ASTTypes.IntegerLiteral
+                    )
+                    subnode = node
+                    node = ASTNode(ASTTypes.ArrayExpression)
+                    node.subnode = subnode
+                    node.index = expressions[0].value
+                else:
+                    # built-in functions can take any number of parameters
+                    assert param_mode == "any"
+                    node.expressions = expressions
+            elif param_mode == "any":
+                # builtin functions require parentheses
+                raise ValueError(
+                    f"built-in {param_mode} requires arguments but none were given"
+                )
+            else:
+                assert param_mode == "array"  # parameters are optional
+
         return node
 
     def find_op(self, ops: dict[str, ASTTypes]) -> Optional[ASTTypes]:

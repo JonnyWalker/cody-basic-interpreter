@@ -270,4 +270,3 @@ def test_data():
     interp = run_code(code)
     assert interp.data_segment == [[3, 10, 12, 7, 6], [3, 15, 8, 2, -1]]
     assert interp.io.output_log == ["TOTAL 66", "COUNT 9", "AVERAGE 7"]
-

@@ -178,7 +178,7 @@ def test_parse_math_expr():
 
 
 def test_parse_builtin_abs():
-    code = "10 PRINT ABS(-10)" # book page 273
+    code = "10 PRINT ABS(-10)"  # book page 273
     parser = CodyBasicParser()
     command = parser.parse_line(code)
     assert command.line_number == 10
@@ -188,12 +188,12 @@ def test_parse_builtin_abs():
     assert ast.ast_type == ASTTypes.BuiltInCall
     assert ast.name == "ABS"
     assert ast.expressions[0].ast_type == ASTTypes.UnaryMinus
-    assert ast.expressions[0].expr.ast_type == ASTTypes.IntegerLiteral   
+    assert ast.expressions[0].expr.ast_type == ASTTypes.IntegerLiteral
     assert ast.expressions[0].expr.value == 10
- 
+
 
 def test_parse_builtin_sqrt():
-    code = "10 PRINT SQR(10)" # book page 273
+    code = "10 PRINT SQR(10)"  # book page 273
     parser = CodyBasicParser()
     command = parser.parse_line(code)
     assert command.line_number == 10
@@ -202,12 +202,12 @@ def test_parse_builtin_sqrt():
     ast = command.expressions[0]
     assert ast.ast_type == ASTTypes.BuiltInCall
     assert ast.name == "SQR"
-    assert ast.expressions[0].ast_type == ASTTypes.IntegerLiteral  
+    assert ast.expressions[0].ast_type == ASTTypes.IntegerLiteral
     assert ast.expressions[0].value == 10
 
 
 def test_parse_builtin_mod():
-    code = "10 PRINT MOD(8,5)" # book page 273
+    code = "10 PRINT MOD(8,5)"  # book page 273
     parser = CodyBasicParser()
     command = parser.parse_line(code)
     assert command.line_number == 10
@@ -216,14 +216,14 @@ def test_parse_builtin_mod():
     ast = command.expressions[0]
     assert ast.ast_type == ASTTypes.BuiltInCall
     assert ast.name == "MOD"
-    assert ast.expressions[0].ast_type == ASTTypes.IntegerLiteral  
+    assert ast.expressions[0].ast_type == ASTTypes.IntegerLiteral
     assert ast.expressions[0].value == 8
-    assert ast.expressions[1].ast_type == ASTTypes.IntegerLiteral  
+    assert ast.expressions[1].ast_type == ASTTypes.IntegerLiteral
     assert ast.expressions[1].value == 5
 
 
 def test_parse_builtin_rnd_no_arg():
-    code = "10 PRINT RND()" # book page 274
+    code = "10 PRINT RND()"  # book page 274
     parser = CodyBasicParser()
     command = parser.parse_line(code)
     assert command.line_number == 10
@@ -236,7 +236,7 @@ def test_parse_builtin_rnd_no_arg():
 
 
 def test_parse_builtin_rnd():
-    code = "10 PRINT RND(10)" # book page 274
+    code = "10 PRINT RND(10)"  # book page 274
     parser = CodyBasicParser()
     command = parser.parse_line(code)
     assert command.line_number == 10
@@ -245,12 +245,12 @@ def test_parse_builtin_rnd():
     ast = command.expressions[0]
     assert ast.ast_type == ASTTypes.BuiltInCall
     assert ast.name == "RND"
-    assert ast.expressions[0].ast_type == ASTTypes.IntegerLiteral  
+    assert ast.expressions[0].ast_type == ASTTypes.IntegerLiteral
     assert ast.expressions[0].value == 10
 
 
 def test_parse_builtin_rnd_ti_arg():
-    code = "10 PRINT RND(TI)" # book page 274
+    code = "10 PRINT RND(TI)"  # book page 274
     parser = CodyBasicParser()
     command = parser.parse_line(code)
     assert command.line_number == 10
@@ -259,7 +259,7 @@ def test_parse_builtin_rnd_ti_arg():
     ast = command.expressions[0]
     assert ast.ast_type == ASTTypes.BuiltInCall
     assert ast.name == "RND"
-    assert ast.expressions[0].ast_type == ASTTypes.BuiltInVariable  
+    assert ast.expressions[0].ast_type == ASTTypes.BuiltInVariable
     assert ast.expressions[0].name == "TI"
 
 
@@ -267,10 +267,10 @@ def test_parse_bitwise_example():
     code = [
         "10 INPUT A",
         "20 INPUT B",
-        "30 PRINT \"NOT \",NOT(A)",
-        "40 PRINT \"AND \",AND(A,B)",
-        "50 PRINT \"OR \",OR(A,B)",
-        "60 PRINT \"XOR \",XOR(A,B)",      
+        '30 PRINT "NOT ",NOT(A)',
+        '40 PRINT "AND ",AND(A,B)',
+        '50 PRINT "OR ",OR(A,B)',
+        '60 PRINT "XOR ",XOR(A,B)',
     ]  # book page 275
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
@@ -289,8 +289,8 @@ def test_parse_bitwise_example():
 
 def test_parse_sub_call_example():
     code = [
-        "10 A$=\"POMERANIAN\"",
-        "20 PRINT SUB$(A$,0,3)",   
+        '10 A$="POMERANIAN"',
+        "20 PRINT SUB$(A$,0,3)",
     ]  # book page 279
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
@@ -301,7 +301,7 @@ def test_parse_sub_call_example():
 
 def test_parse_chr_call_example():
     code = [
-        "10 PRINT CHR$(67,111,100,121)", 
+        "10 PRINT CHR$(67,111,100,121)",
     ]  # book page 279
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
@@ -312,7 +312,7 @@ def test_parse_chr_call_example():
 
 def test_parse_val_call_example():
     code = [
-        "10 INPUT S$", 
+        "10 INPUT S$",
         "20 N=VAL(S$)",
         "30 PRINT N*2",
     ]  # book page 280
@@ -325,7 +325,7 @@ def test_parse_val_call_example():
 
 def test_parse_len_call_example():
     code = [
-        "10 INPUT S$", 
+        "10 INPUT S$",
         "20 PRINT LEN(S$)",
     ]  # book page 281
     parser = CodyBasicParser()
@@ -337,7 +337,7 @@ def test_parse_len_call_example():
 
 def test_parse_asc_call_example():
     code = [
-        "10 INPUT S$", 
+        "10 INPUT S$",
         "20 PRINT ASC(S$)",
     ]  # book page 282
     parser = CodyBasicParser()
@@ -349,9 +349,9 @@ def test_parse_asc_call_example():
 
 def test_parse_at_call_example():
     code = [
-        "10 FOR I=0 TO 9", 
-        "20 PRINT AT(I,I),\"HELLO, WORLD!\"",
-        "30 NEXT"
+        "10 FOR I=0 TO 9",
+        '20 PRINT AT(I,I),"HELLO, WORLD!"',
+        "30 NEXT",
     ]  # book page 284
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
@@ -362,9 +362,9 @@ def test_parse_at_call_example():
 
 def test_parse_tab_call_example():
     code = [
-        "10 FOR I=1 TO 10", 
-        "20 PRINT I,TAB(5),I*I,TAB(20),\"MESSAGE\"",
-        "30 NEXT"
+        "10 FOR I=1 TO 10",
+        '20 PRINT I,TAB(5),I*I,TAB(20),"MESSAGE"',
+        "30 NEXT",
     ]  # book page 286
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
@@ -377,7 +377,7 @@ def test_parse_tab_call_example():
 
 def test_parse_chr_call_example():
     code = [
-        "10 PRINT CHR$(222)", 
+        "10 PRINT CHR$(222)",
     ]  # book page 287
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
@@ -391,7 +391,7 @@ def test_parse_chr_call_example2():
         "10 FOR I=0 TO 15",
         "20 PRINT CHR$(240+I),240+I",
         "30 NEXT",
-        "40 PRINT CHR$(241)"
+        "40 PRINT CHR$(241)",
     ]  # book page 287
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
@@ -408,7 +408,7 @@ def test_parse_chr_call_example3():
         "10 FOR I=0 TO 15",
         "20 PRINT CHR$(224+I),224+I",
         "30 NEXT",
-        "40 PRINT CHR$(230)"
+        "40 PRINT CHR$(230)",
     ]  # book page 289
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
@@ -438,9 +438,9 @@ def test_parse_chr_call_example5():
     code = [
         "10 FOR I=0 TO 66",
         "20 IF MOD(I,6)=0 THEN PRINT",
-        "30 PRINT 128+I,\" \",CHR$(128+I),\" \";",
+        '30 PRINT 128+I," ",CHR$(128+I)," ";',
         "40 NEXT",
-        "50 PRINT"
+        "50 PRINT",
     ]  # book page 292
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
@@ -465,9 +465,9 @@ def test_parse_ti_var():
 
 def test_parse_peek_call_var():
     code = [
-        "10 PRINT \"PRESS Q TO QUIT...\"",
+        '10 PRINT "PRESS Q TO QUIT..."',
         "20 IF AND(PEEK(16),1)=1 THEN GOTO 10",
-        "30 PRINT \"Q PRESSED\"",
+        '30 PRINT "Q PRESSED"',
     ]  # book page 301
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
@@ -477,4 +477,3 @@ def test_parse_peek_call_var():
     assert parsed_code[1].condition.left.name == "AND"
     assert parsed_code[1].condition.left.expressions[0].ast_type == ASTTypes.BuiltInCall
     assert parsed_code[1].condition.left.expressions[0].name == "PEEK"
-

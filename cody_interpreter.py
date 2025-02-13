@@ -183,7 +183,8 @@ class Interpreter:
             raise NotImplementedError(f"unknown command {command.command_type}")
 
     def run_code(self, code):
-        self.setup_data_segment(code) # TODO: remove unexpected side-effect from run_code
+        # TODO: remove unexpected side-effect from run_code
+        self.setup_data_segment(code)
         self.code = code
         self.next_index = 0
         while self.next_index < len(code):
@@ -193,12 +194,12 @@ class Interpreter:
 
     def reset_data_pos(self):
         self.data_pos = (0, 0)
-    
+
     def setup_data_segment(self, code):
-        '''
+        """
         Precomputes the DATA values by evaluating all data statements.
-        '''
-        self.data_segment = [] # values will be added by DATA statement
+        """
+        self.data_segment = []  # values will be added by DATA statement
         for command in code:
             if command.command_type == "DATA":
                 values = []
@@ -212,9 +213,10 @@ class Interpreter:
         value = self.data_segment[line][index]
         if len(self.data_segment[line]) == index + 1:
             self.data_pos = (line + 1, 0)
-        else: # move to next "line"
+        else:  # move to next "line"
             self.data_pos = (line, index + 1)
         return value
+
 
 class StdIO(IO):
     def print(self, value: str):
@@ -229,7 +231,8 @@ class StdIO(IO):
 
 class TestIO(IO):
     # https://stackoverflow.com/questions/62460557/cannot-collect-test-class-testmain-because-it-has-a-init-constructor-from
-    __test__ = False 
+    __test__ = False
+
     def __init__(
         self, inputs: Optional[Iterable[str]] = None, print_inputs: bool = False
     ):
