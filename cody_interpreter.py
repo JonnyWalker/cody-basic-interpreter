@@ -1,6 +1,7 @@
 from cody_parser import ASTTypes
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable
+from cody_util import twos_complement
 import time
 import random
 
@@ -46,10 +47,10 @@ class Interpreter:
                 value = int(value)
             else:
                 assert isinstance(value, int)
-            self.int_arrays.setdefault(target.name, {})[index] = value
+            self.int_arrays.setdefault(target.name, {})[index] = twos_complement(value)
         elif target.ast_type == ASTTypes.StringVariable:
-            assert isinstance(value, str)
-            assert index == 0  # string arrays not supported
+            # string arrays not supported
+            assert isinstance(value, str) and len(value) <= 255 and index == 0
             self.string_arrays.setdefault(target.name, {})[index] = value
         else:
             raise ValueError(f"cannot write to node {target.ast_type}")
@@ -58,50 +59,62 @@ class Interpreter:
         if node.ast_type == ASTTypes.Equal:
             left = self.eval(node.left)
             right = self.eval(node.right)
+            assert type(left) == type(right)
             return left == right
         elif node.ast_type == ASTTypes.NotEqual:
             left = self.eval(node.left)
             right = self.eval(node.right)
+            assert type(left) == type(right)
             return left != right
         elif node.ast_type == ASTTypes.Less:
             left = self.eval(node.left)
             right = self.eval(node.right)
+            assert type(left) == type(right)
             return left < right
         elif node.ast_type == ASTTypes.LessEqual:
             left = self.eval(node.left)
             right = self.eval(node.right)
+            assert type(left) == type(right)
             return left <= right
         elif node.ast_type == ASTTypes.Greater:
             left = self.eval(node.left)
             right = self.eval(node.right)
+            assert type(left) == type(right)
             return left > right
         elif node.ast_type == ASTTypes.GreaterEqual:
             left = self.eval(node.left)
             right = self.eval(node.right)
+            assert type(left) == type(right)
             return left >= right
         elif node.ast_type == ASTTypes.BinaryAdd:
             left = self.eval(node.left)
             right = self.eval(node.right)
-            return left + right
+            if isinstance(left, int) and isinstance(right, int):
+                return twos_complement(left + right)
+            else:
+                value = f"{left}{right}"
+                assert len(value) <= 255
+                return value
         elif node.ast_type == ASTTypes.BinarySub:
             left = self.eval(node.left)
             right = self.eval(node.right)
-            return left - right
+            return twos_complement(left - right)
         elif node.ast_type == ASTTypes.BinaryMul:
             left = self.eval(node.left)
             right = self.eval(node.right)
-            return left * right
+            return twos_complement(left * right)
         elif node.ast_type == ASTTypes.BinaryDiv:
             left = self.eval(node.left)
             right = self.eval(node.right)
-            return left // right  # integer div
+            return twos_complement(left // right)  # integer div
         elif node.ast_type == ASTTypes.UnaryMinus:
             expr = self.eval(node.expr)
-            return -expr
+            return twos_complement(-expr)
         elif node.ast_type == ASTTypes.StringLiteral:
+            assert isinstance(node.literal, str) and len(node.literal) <= 255
             return node.literal
         elif node.ast_type == ASTTypes.IntegerLiteral:
-            return node.value
+            return twos_complement(node.value)
         elif node.ast_type in (
             ASTTypes.IntegerVariable,
             ASTTypes.StringVariable,
@@ -110,11 +123,13 @@ class Interpreter:
             index, target = self.compute_target(node)
             if target.ast_type == ASTTypes.IntegerVariable:
                 array = self.int_arrays.setdefault(target.name, {})
-                return array.setdefault(index, 0)
+                return twos_complement(array.setdefault(index, 0))
             elif target.ast_type == ASTTypes.StringVariable:
                 assert index == 0  # string arrays not supported
                 array = self.string_arrays.setdefault(target.name, {})
-                return array.setdefault(index, "")
+                value = array.setdefault(index, "")
+                assert isinstance(value, str) and len(value) <= 255
+                return value
             else:
                 raise AssertionError
         elif node.ast_type == ASTTypes.BuiltInVariable:
@@ -126,17 +141,17 @@ class Interpreter:
 
     def eval_builtin_var(self, name):
         if name == "TI":
-            return int(time.monotonic() * 60)
+            return twos_complement(int(time.monotonic() * 60))
         else:
             raise NotImplementedError(f"built-in variable {name} not implemented")
 
     def eval_builtin_function(self, name, args):
         if name == "ABS" and len(args) == 1:
-            return abs(self.eval(args[0]))
+            return twos_complement(abs(self.eval(args[0])))
         elif name == "SQR" and len(args) == 1:
-            return self.eval(args[0]) ** 2
+            return twos_complement(self.eval(args[0]) ** 2)
         elif name == "MOD" and len(args) == 2:
-            return self.eval(args[0]) % self.eval(args[1])
+            return twos_complement(self.eval(args[0]) % self.eval(args[1]))
         elif name == "RND" and len(args) <= 1:
             # TODO: test this?
             # reference: page 273
@@ -187,7 +202,7 @@ class Interpreter:
                     digits.append(c)
                 else:
                     break
-            return int("".join(digits))
+            return twos_complement(int("".join(digits)))
         elif name == "LEN" and len(args) == 1:
             return len(self.eval(args[0]))
         elif name == "ASC" and len(args) == 1:
