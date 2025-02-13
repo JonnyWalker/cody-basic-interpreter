@@ -19,12 +19,8 @@ class IO(ABC):
 
 class Interpreter:
     def __init__(self, io: Optional[IO] = None):
-        self.int_arrays = {}  # maps variable names to values
-        self.string_arrays = {}  # maps variable names to values
-        self.call_stack = []
-        self.loop_stack = []
         self.io = io if io is not None else StdIO()
-        self.reset_data_pos()
+        self.reset()
 
     def compute_target(self, node):
         if node.ast_type == ASTTypes.ArrayExpression:
@@ -301,6 +297,16 @@ class Interpreter:
             self.next_index += 1
             self.run_command(command)
 
+    def reset(self):
+        self.int_arrays = {}  # maps variable names to values
+        self.string_arrays = {}  # maps variable names to values
+        self.call_stack = []
+        self.loop_stack = []
+        self.reset_data_pos()
+        self.data_segment = []
+        self.code = []
+        self.next_index = 0
+
     def reset_data_pos(self):
         self.data_pos = (0, 0)
 
@@ -308,7 +314,7 @@ class Interpreter:
         """
         Precomputes the DATA values by evaluating all data statements.
         """
-        self.data_segment = []  # values will be added by DATA statement
+        # values will be added by DATA statement
         for command in code:
             if command.command_type == "DATA":
                 values = []

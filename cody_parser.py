@@ -318,6 +318,18 @@ class CodyBasicParser:
         self.pos = initial_pos + (len(last_valid_token) if last_valid_token else 0)
         return ops[last_valid_token] if last_valid_token else None
 
+    def strip_whitespace(self, s):
+        stripped = ""
+        inside_string_literal = False
+        for char in s:
+            if char == '"':
+                inside_string_literal = not inside_string_literal
+            elif char == " ":
+                if not inside_string_literal:
+                    continue
+            stripped += char
+        return stripped
+
     def parse_statement(self, command):
         # (1) parse command type
         for command_type in commands:
@@ -333,15 +345,7 @@ class CodyBasicParser:
         c = Command(command_type)
 
         # (2) remove spaces from rest, except in string literal
-        other = ""
-        inside_string_literal = False
-        for char in rest:
-            if char == '"':
-                inside_string_literal = not inside_string_literal
-            elif char == " ":
-                if not inside_string_literal:
-                    continue
-            other += char
+        other = self.strip_whitespace(rest)
 
         # (3) parse other parts
         if c.command_type == "REM":
@@ -385,9 +389,13 @@ class CodyBasicParser:
             raise NotImplementedError(f"unknown command type {c.command_type}")
         return c
 
-    def parse_line(self, line):
+    def parse_line(self, line, allow_empty=False):
         # (0) split at first space, which must be after the line number
-        line_number, command = line.split(" ", 1)
+        split = line.split(" ", 1)
+        if allow_empty and len(split) == 1:
+            # just return the line number
+            return int(split[0])
+        line_number, command = split
         line_number = int(line_number)
         cmd = self.parse_statement(command)
         cmd.line_number = line_number
