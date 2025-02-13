@@ -1,6 +1,7 @@
 from cody_parser import ASTTypes
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable
+import time
 
 
 class IO(ABC):
@@ -27,9 +28,15 @@ class Interpreter:
         if node.ast_type == ASTTypes.ArrayExpression:
             index = node.index
             target = node.subnode
-        else:
+        elif node.ast_type in (
+            ASTTypes.IntegerVariable,
+            ASTTypes.StringVariable,
+            ASTTypes.BuiltInVariable,
+        ):
             index = 0
             target = node
+        else:
+            raise ValueError(f"cannot read/write to node {node.ast_type}")
         return index, target
 
     def add_value(self, target, value, index, convert_int=False):
@@ -42,6 +49,8 @@ class Interpreter:
         elif target.ast_type == ASTTypes.StringVariable:
             assert isinstance(value, str)
             self.string_arrays.setdefault(target.name, {})[index] = value
+        else:
+            raise ValueError(f"cannot write to node {target.ast_type}")
 
     def eval(self, node):
         if node.ast_type == ASTTypes.Equal:
@@ -105,8 +114,30 @@ class Interpreter:
                 return array.setdefault(index, "")
             else:
                 raise AssertionError
+        elif node.ast_type == ASTTypes.BuiltInVariable:
+            return self.eval_builtin_var(node.name)
+        elif node.ast_type == ASTTypes.BuiltInCall:
+            return self.eval_builtin_function(node.name, node.expressions)
         else:
-            raise Exception("eval error")
+            raise NotImplementedError(f"ast type {node.ast_type} not implemented")
+
+    def eval_builtin_var(self, name):
+        if name == "TI":
+            return int(time.monotonic() * 60)
+        else:
+            raise NotImplementedError(f"built-in variable {name} not implemented")
+
+    def eval_builtin_function(self, name, args):
+        if name == "ABS" and len(args) == 1:
+            return abs(self.eval(args[0]))
+        elif name == "SQR" and len(args) == 1:
+            return self.eval(args[0]) ** 2
+        elif name == "MOD" and len(args) == 2:
+            return self.eval(args[0]) % self.eval(args[1])
+        else:
+            raise NotImplementedError(
+                f"built-in function {name}/{len(args)} not implemented"
+            )
 
     def run_command(self, command):
         if command.command_type in ("REM", "DATA"):

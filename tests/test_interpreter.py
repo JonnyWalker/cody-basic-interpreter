@@ -233,6 +233,30 @@ def test_math_expr_unary_minus_2():
     assert interp.io.output_log == ["-40"]
 
 
+def test_builtin_function_abs():
+    code = """
+10 PRINT ABS(-10)
+"""  # book page 273
+    interp = run_code(code)
+    assert interp.io.output_log == ["10"]
+
+
+def test_builtin_function_sqr():
+    code = """
+10 PRINT SQR(10)
+"""  # book page 273
+    interp = run_code(code)
+    assert interp.io.output_log == ["100"]
+
+
+def test_builtin_function_mod():
+    code = """
+10 PRINT MOD(8,5)
+"""  # book page 273
+    interp = run_code(code)
+    assert interp.io.output_log == ["3"]
+
+
 def test_string_concat():
     code = """
 10 A$="HELLO"
