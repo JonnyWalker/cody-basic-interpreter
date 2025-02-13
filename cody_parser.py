@@ -45,7 +45,7 @@ commands = [
     "SYS",
 ]
 
-# TODO: add and Test STR$
+
 builtin_functions = [
     "ABS",
     "ASC",
@@ -59,13 +59,16 @@ builtin_functions = [
     "PEEK",
     "RND",
     "SQR",
+    "STR$",
     "SUB$",
     "TAB",
     "VAL",
     "XOR",
 ]
 
-builtin_vars = ["TI"]
+builtin_vars = [
+    "TI",
+]
 
 
 class Command:

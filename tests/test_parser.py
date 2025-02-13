@@ -310,12 +310,25 @@ def test_parse_chr_call_example():
     assert parsed_code[0].expressions[0].name == "CHR$"
 
 
+def test_parse_str_call_example():
+    code = """
+10 INPUT N
+20 S$=STR$(N)
+30 PRINT S$
+"""  # book page 280
+    parser = CodyBasicParser()
+    parsed_code = parser.parse_string(code)
+    assert parsed_code[1].command_type == "ASSIGNMENT"
+    assert parsed_code[1].rvalue.ast_type == ASTTypes.BuiltInCall
+    assert parsed_code[1].rvalue.name == "STR$"
+
+
 def test_parse_val_call_example():
     code = [
         "10 INPUT S$",
         "20 N=VAL(S$)",
         "30 PRINT N*2",
-    ]  # book page 280
+    ]  # book page 281
     parser = CodyBasicParser()
     parsed_code = parser.parse_program(code)
     assert parsed_code[1].command_type == "ASSIGNMENT"
