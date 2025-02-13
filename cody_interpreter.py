@@ -2,6 +2,7 @@ from cody_parser import ASTTypes
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable
 import time
+import random
 
 
 class IO(ABC):
@@ -48,6 +49,7 @@ class Interpreter:
             self.int_arrays.setdefault(target.name, {})[index] = value
         elif target.ast_type == ASTTypes.StringVariable:
             assert isinstance(value, str)
+            assert index == 0  # string arrays not supported
             self.string_arrays.setdefault(target.name, {})[index] = value
         else:
             raise ValueError(f"cannot write to node {target.ast_type}")
@@ -110,6 +112,7 @@ class Interpreter:
                 array = self.int_arrays.setdefault(target.name, {})
                 return array.setdefault(index, 0)
             elif target.ast_type == ASTTypes.StringVariable:
+                assert index == 0  # string arrays not supported
                 array = self.string_arrays.setdefault(target.name, {})
                 return array.setdefault(index, "")
             else:
@@ -134,6 +137,66 @@ class Interpreter:
             return self.eval(args[0]) ** 2
         elif name == "MOD" and len(args) == 2:
             return self.eval(args[0]) % self.eval(args[1])
+        elif name == "RND" and len(args) <= 1:
+            # TODO: test this?
+            # reference: page 273
+            # "The function has two forms, one that accepts a number as the random seed value, and a no-argument form that returns the next random number in the sequence."
+            if len(args) == 1:
+                seed = self.eval(args[0])
+                assert isinstance(seed, int)
+                if seed == 0:
+                    # "A seed value of zero is invalid and will be replaced with the system's default seed value."
+                    random.seed()
+                else:
+                    # "For a given seed value the resulting sequence will always be the same."
+                    random.seed(seed)
+            # "[...] generate random numbers between 0 and 255."
+            return random.randrange(256)
+        elif name == "NOT" and len(args) == 1:
+            return ~self.eval(args[0])
+        elif name == "AND" and len(args) == 2:
+            return self.eval(args[0]) & self.eval(args[1])
+        elif name == "OR" and len(args) == 2:
+            return self.eval(args[0]) | self.eval(args[1])
+        elif name == "XOR" and len(args) == 2:
+            return self.eval(args[0]) ^ self.eval(args[1])
+        elif name == "SUB$" and len(args) == 3:
+            s = self.eval(args[0])
+            start = self.eval(args[1])
+            length = self.eval(args[2])
+            assert (
+                isinstance(s, str)
+                and 0 <= start < len(s)
+                and 0 <= length
+                and start + length < len(s)
+            )
+            return s[start : start + length]
+        elif name == "CHR$":
+            # TODO: use CODSCII charset (extended ascii)
+            return "".join(map(lambda x: chr(self.eval(x)), args))
+        elif name == "STR$" and len(args) == 1:
+            return str(self.eval(args[0]))
+        elif name == "VAL" and len(args) == 1:
+            # "returns the number it was able to parse from the beginning of the string"
+            s = self.eval(args[0])
+            assert isinstance(s, str)
+            digits = []
+            for i, c in enumerate(s):
+                # "Leading minus signs are supported"
+                if c.isdigit() or (i == 0 and c == "-"):
+                    digits.append(c)
+                else:
+                    break
+            return int("".join(digits))
+        elif name == "LEN" and len(args) == 1:
+            return len(self.eval(args[0]))
+        elif name == "ASC" and len(args) == 1:
+            s = self.eval(args[0])
+            assert isinstance(s, str)
+            if len(s) > 0:
+                return ord(s[0])
+            else:
+                return 0
         else:
             raise NotImplementedError(
                 f"built-in function {name}/{len(args)} not implemented"

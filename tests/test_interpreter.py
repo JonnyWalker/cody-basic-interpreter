@@ -257,6 +257,19 @@ def test_builtin_function_mod():
     assert interp.io.output_log == ["3"]
 
 
+def test_builtin_function_bitwise():
+    code = """
+10 INPUT A
+20 INPUT B
+30 PRINT "NOT ",NOT(A)
+40 PRINT "AND ",AND(A,B)
+50 PRINT "OR ",OR(A,B)
+60 PRINT "XOR ",XOR(A,B)
+"""  # book page 275
+    interp = run_code(code, ["1", "0"])
+    assert interp.io.output_log == ["NOT -2", "AND 0", "OR 1", "XOR 1"]
+
+
 def test_string_concat():
     code = """
 10 A$="HELLO"
@@ -276,6 +289,72 @@ def test_string_comparisons():
 """  # book page 278
     interp = run_code(code, ["HELLO", "HELLO!"])
     assert interp.io.output_log == ["MATCH"]
+
+
+def test_builtin_str_function_sub():
+    code = """
+10 A$="POMERANIAN"
+20 PRINT SUB$(A$,0,3)
+"""  # book page 279
+    interp = run_code(code)
+    assert interp.io.output_log == ["POM"]
+
+
+def test_builtin_str_function_chr():
+    code = """
+10 PRINT CHR$(67,111,100,121)
+"""  # book page 279
+    interp = run_code(code)
+    assert interp.io.output_log == ["Cody"]
+
+
+def test_builtin_str_function_str():
+    code = """
+10 INPUT N
+20 S$=STR$(N)
+30 PRINT S$
+"""  # book page 280
+    interp = run_code(code, ["123"])
+    assert interp.io.output_log == ["123"]
+
+
+def test_builtin_function_val():
+    code = """
+10 INPUT S$
+20 N=VAL(S$)
+30 PRINT N*2
+"""  # book page 281
+    interp = run_code(code, ["10"])
+    assert interp.io.output_log == ["20"]
+
+
+def test_builtin_function_len():
+    code = """
+10 INPUT S$
+20 PRINT LEN(S$)
+"""  # book page 281
+    interp = run_code(code, ["KODACHROME"])
+    assert interp.io.output_log == ["10"]
+
+
+def test_builtin_function_asc_1():
+    code = """
+10 INPUT S$
+20 PRINT ASC(S$)
+"""  # book page 282
+    interp = run_code(code, ["CARRABELLE"])
+    assert interp.io.output_log == ["67"]
+
+
+def test_builtin_function_asc_2():
+    code = """
+10 INPUT S$
+20 INPUT N
+30 T$=SUB$(S$,N,1)
+40 PRINT ASC(T$)
+"""  # book page 283
+    interp = run_code(code, ["FOLKSTON", "2"])
+    assert interp.io.output_log == ["76"]
 
 
 def test_data():
