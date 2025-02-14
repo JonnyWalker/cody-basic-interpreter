@@ -1,4 +1,4 @@
-from cody_parser import ASTTypes
+from cody_parser import ASTTypes, CommandTypes
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable
 from cody_util import twos_complement
@@ -215,13 +215,17 @@ class Interpreter:
             )
 
     def run_command(self, command):
-        if command.command_type in ("REM", "DATA"):
+        if command.command_type in (
+            CommandTypes.REM,
+            CommandTypes.EMPTY,
+            CommandTypes.DATA,
+        ):
             pass  # ignore comments and (already precomputed) DATA values
-        elif command.command_type == "ASSIGNMENT":
+        elif command.command_type == CommandTypes.ASSIGNMENT:
             index, target = self.compute_target(command.lvalue)
             value = self.eval(command.rvalue)
             self.add_value(target, value, index)
-        elif command.command_type == "PRINT":
+        elif command.command_type == CommandTypes.PRINT:
             value = ""
             for expr in command.expressions:
                 # TODO: implement AT and TAB functions in eval via IO
@@ -231,16 +235,16 @@ class Interpreter:
 
             if not command.no_new_line:
                 self.io.println()
-        elif command.command_type == "INPUT":
+        elif command.command_type == CommandTypes.INPUT:
             for expr in command.expressions:
                 index, target = self.compute_target(expr)
                 value = self.io.input()
                 self.add_value(target, value, index, convert_int=True)
-        elif command.command_type == "IF":
+        elif command.command_type == CommandTypes.IF:
             value = self.eval(command.condition)
             if value:
                 self.run_command(command.command)
-        elif command.command_type == "GOTO":
+        elif command.command_type == CommandTypes.GOTO:
             number = self.eval(command.expression)
             assert isinstance(number, int)
             # TODO: precompute hashmap with jump target to do this in O(1)
@@ -248,14 +252,15 @@ class Interpreter:
                 if target.line_number == number:
                     self.next_index = index
                     break
-        elif command.command_type == "FOR":
+        elif command.command_type == CommandTypes.FOR:
+            assert command.assignment.command_type == CommandTypes.ASSIGNMENT
             self.run_command(command.assignment)
             limit = self.eval(command.limit)
             variable = command.assignment.lvalue
             assert variable.ast_type == ASTTypes.IntegerVariable
             self.loop_stack.append((variable.name, limit, self.next_index))
             assert self.int_arrays[variable.name][0] < limit
-        elif command.command_type == "NEXT":
+        elif command.command_type == CommandTypes.NEXT:
             name, limit, next_index = self.loop_stack[-1]
             current_value = self.int_arrays[name][0]
             if current_value == limit:
@@ -263,7 +268,7 @@ class Interpreter:
             else:
                 self.int_arrays[name][0] = current_value + 1
                 self.next_index = next_index
-        elif command.command_type == "GOSUB":
+        elif command.command_type == CommandTypes.GOSUB:
             number = self.eval(command.expression)
             assert isinstance(number, int)
             self.call_stack.append(self.next_index)
@@ -272,21 +277,23 @@ class Interpreter:
                 if target.line_number == number:
                     self.next_index = index
                     break
-        elif command.command_type == "RETURN":
+        elif command.command_type == CommandTypes.RETURN:
             self.next_index = self.call_stack.pop()
-        elif command.command_type == "END":
+        elif command.command_type == CommandTypes.END:
             self.next_index = len(self.code)  # FIXME: remove hack
-        elif command.command_type == "READ":
+        elif command.command_type == CommandTypes.READ:
             for expr in command.expressions:
                 index, target = self.compute_target(expr)
                 # only integer variables supported
                 assert target.ast_type == ASTTypes.IntegerVariable
                 value = self.read_next_data_value()
                 self.add_value(target, value, index)
-        elif command.command_type == "RESTORE":
+        elif command.command_type == CommandTypes.RESTORE:
             self.reset_data_pos()
         else:
-            raise NotImplementedError(f"unknown command {command.command_type}")
+            raise NotImplementedError(
+                f"command type {command.command_type.name} not implemented"
+            )
 
     def run_code(self, code):
         # TODO: remove unexpected side-effect from run_code
@@ -317,7 +324,7 @@ class Interpreter:
         """
         # values will be added by DATA statement
         for command in code:
-            if command.command_type == "DATA":
+            if command.command_type == CommandTypes.DATA:
                 values = []
                 for expr in command.expressions:
                     value = self.eval(expr)

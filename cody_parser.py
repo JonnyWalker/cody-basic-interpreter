@@ -1,5 +1,5 @@
 from enum import Enum, auto, unique
-from typing import Optional
+from typing import Optional, Iterable
 from cody_util import twos_complement
 
 
@@ -25,26 +25,36 @@ class ASTTypes(Enum):
     GreaterEqual = auto()
 
 
-# TODO: also use an enum
-commands = [
-    "REM",
-    "GOSUB",
-    "PRINT",
-    "IF",
-    "END",
-    "INPUT",
-    "GOTO",
-    "NEXT",
-    "FOR",
-    "RETURN",
-    "OPEN",
-    "CLOSE",
-    "DATA",
-    "READ",
-    "RESTORE",
-    "POKE",
-    "SYS",
-]
+@unique
+class CommandTypes(Enum):
+    ASSIGNMENT = auto()
+    EMPTY = auto()
+    REM = auto()
+    GOSUB = auto()
+    PRINT = auto()
+    IF = auto()
+    END = auto()
+    INPUT = auto()
+    GOTO = auto()
+    NEXT = auto()
+    FOR = auto()
+    RETURN = auto()
+    OPEN = auto()
+    CLOSE = auto()
+    DATA = auto()
+    READ = auto()
+    RESTORE = auto()
+    POKE = auto()
+    SYS = auto()
+    NEW = auto()
+    LOAD = auto()
+    SAVE = auto()
+    RUN = auto()
+    LIST = auto()
+
+    @property
+    def valid_prefix(self) -> bool:
+        return self not in (CommandTypes.ASSIGNMENT, CommandTypes.EMPTY)
 
 
 builtin_functions = [
@@ -73,13 +83,13 @@ builtin_vars = [
 
 
 class Command:
-    def __init__(self, command_type):
-        self.line_number = None
+    def __init__(self, command_type: CommandTypes, line_number: Optional[int] = None):
         self.command_type = command_type
+        self.line_number: Optional[int] = line_number
 
 
 class ASTNode:
-    def __init__(self, ast_type):
+    def __init__(self, ast_type: ASTTypes):
         self.ast_type = ast_type
 
 
@@ -318,7 +328,7 @@ class CodyBasicParser:
         self.pos = initial_pos + (len(last_valid_token) if last_valid_token else 0)
         return ops[last_valid_token] if last_valid_token else None
 
-    def strip_whitespace(self, s):
+    def strip_whitespace(self, s: str) -> str:
         stripped = ""
         inside_string_literal = False
         for char in s:
@@ -330,36 +340,61 @@ class CodyBasicParser:
             stripped += char
         return stripped
 
-    def parse_statement(self, command):
-        # (1) parse command type
-        for command_type in commands:
-            if command.startswith(command_type):
-                rest = command[len(command_type) :]
+    def parse_command(self, command: str) -> Command:
+        # (0) remove spaces, except in string literal
+        command = self.strip_whitespace(command)
+
+        # (1) split line number if present
+        for i, c in enumerate(command):
+            if not c.isdigit():
                 break
-        else:  # special parsing case for assignments
-            if "=" in command:
-                command_type = "ASSIGNMENT"
-                rest = command
+        if i > 0:
+            line_number = int(command[:i])
+            command = command[i:]
+        else:
+            line_number = None
+
+        # (2) parse command type
+        for command_type in CommandTypes:
+            if command_type.valid_prefix and command.startswith(command_type.name):
+                other = command[len(command_type.name) :]
+                break
+        else:  # special parsing case for empty string and assignments
+            if not command:
+                command_type = CommandTypes.EMPTY
+                other = command
+            #  just a heuristic, might break with "=" in string literal
+            elif "=" in command:
+                command_type = CommandTypes.ASSIGNMENT
+                other = command
             else:
                 raise NotImplementedError("error! unknown command: " + command)
-        c = Command(command_type)
-
-        # (2) remove spaces from rest, except in string literal
-        other = self.strip_whitespace(rest)
+        c = Command(command_type, line_number)
 
         # (3) parse other parts
-        if c.command_type == "REM":
+        if c.command_type == CommandTypes.REM:
             pass  # ignore line
-        elif c.command_type in ("NEXT", "RETURN", "END", "CLOSE", "RESTORE"):
+        elif c.command_type in (
+            CommandTypes.EMPTY,
+            CommandTypes.NEXT,
+            CommandTypes.RETURN,
+            CommandTypes.END,
+            CommandTypes.CLOSE,
+            CommandTypes.RESTORE,
+            CommandTypes.NEW,
+            CommandTypes.RUN,
+        ):
             if other:
-                raise Exception("expected end of line")
-        elif c.command_type == "ASSIGNMENT":
+                raise Exception(
+                    f"expected end of line after command {c.command_type.name}, but was {other}"
+                )
+        elif c.command_type == CommandTypes.ASSIGNMENT:
             ast = self.parse(other)
             assert ast.ast_type == ASTTypes.Equal
             c.lvalue, c.rvalue = ast.left, ast.right
-        elif c.command_type in ("GOTO", "GOSUB"):
+        elif c.command_type in (CommandTypes.GOTO, CommandTypes.GOSUB):
             c.expression = self.parse(other)
-        elif c.command_type == "PRINT":
+        elif c.command_type == CommandTypes.PRINT:
             c.expressions = self.parse(other, list=True, ignore_tail=True)
             if self.peek() == ";":  # page 249, semicolon = no new line
                 self.advance()
@@ -368,54 +403,53 @@ class CodyBasicParser:
                 c.no_new_line = False
             if self.peek():
                 raise Exception("expected end of line")
-        elif c.command_type in ("INPUT", "DATA", "READ"):
+        elif c.command_type in (
+            CommandTypes.INPUT,
+            CommandTypes.DATA,
+            CommandTypes.READ,
+        ):
             c.expressions = self.parse(other, list=True)
             assert len(c.expressions) >= 1
-        elif c.command_type == "IF":
+        elif c.command_type == CommandTypes.IF:
             condition, statement = other.split("THEN", 1)
             c.condition = self.parse(condition)
-            c.command = self.parse_statement(statement)
-        elif c.command_type == "FOR":
+            c.command = self.parse_command(statement)
+        elif c.command_type == CommandTypes.FOR:
             assignment, limit = other.split("TO", 1)
-            c.assignment = self.parse_statement(assignment)
+            c.assignment = self.parse_command(assignment)
             c.limit = self.parse(limit)
-        elif c.command_type == "OPEN":
+        elif c.command_type == CommandTypes.OPEN:
             c.uart, c.bit_rate = self.parse(other, list=True)
-        elif c.command_type == "POKE":
+        elif c.command_type == CommandTypes.POKE:
             c.address, c.expression = self.parse(other, list=True)
-        elif c.command_type == "SYS":
+        elif c.command_type == CommandTypes.SYS:
             c.address = self.parse(other)
+        elif c.command_type == CommandTypes.LIST:
+            exprs = self.parse(other, list=True)
+            assert len(exprs) <= 2
+            c.start = exprs[0] if len(exprs) >= 1 else None
+            c.end = exprs[1] if len(exprs) >= 2 else None
         else:
-            raise NotImplementedError(f"unknown command type {c.command_type}")
+            raise NotImplementedError(
+                f"command type {c.command_type.name} not implemented"
+            )
         return c
 
-    def parse_line(self, line, allow_empty=False):
-        # (0) split at first space, which must be after the line number
-        split = line.split(" ", 1)
-        if allow_empty and len(split) == 1:
-            # just return the line number
-            return int(split[0])
-        line_number, command = split
-        line_number = int(line_number)
-        cmd = self.parse_statement(command)
-        cmd.line_number = line_number
-        return cmd
-
-    def parse_program(self, lines):
-        parsed_commands = []
+    def parse_lines(self, lines: Iterable[str]) -> list[Command]:
+        parsed = []
         for line in lines:
             line = line.strip()
             if not line:
                 continue  # skip empty lines
-            c = self.parse_line(line)
-            parsed_commands.append(c)
-        return parsed_commands
+            c = self.parse_command(line)
+            parsed.append(c)
+        return parsed
 
-    def parse_file(self, filename):
+    def parse_file(self, filename: str) -> list[Command]:
         with open(filename) as f:
             lines = f.readlines()
-        return self.parse_program(lines)
+        return self.parse_lines(lines)
 
-    def parse_string(self, code: str):
+    def parse_string(self, code: str) -> list[Command]:
         lines = code.splitlines()
-        return self.parse_program(lines)
+        return self.parse_lines(lines)

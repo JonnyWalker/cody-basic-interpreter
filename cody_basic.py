@@ -3,7 +3,7 @@ import sys
 import code
 import math
 import traceback
-from cody_parser import CodyBasicParser
+from cody_parser import CodyBasicParser, CommandTypes
 from cody_interpreter import Interpreter
 
 COMMANDS = [
@@ -25,46 +25,26 @@ class CodyBasicREPL(code.InteractiveConsole):
 
     def runsource(self, source, filename="<input>", symbol="single"):
         source = source.strip()
-        for cmd in COMMANDS:
-            if source.startswith(cmd):
-                break
-        else:
-            if len(source) > 0 and source[0].isdigit():
-                # edit saved program
-                try:
-                    cmd = self.parser.parse_line(source, allow_empty=True)
-                except Exception:
-                    traceback.print_exc()
-                    return
-                if isinstance(cmd, int):
-                    # remove
-                    self.program.pop(cmd, None)
-                else:
-                    # save
-                    self.program[cmd.line_number] = cmd, source
+        if not source:
+            return
+        elif source in ("EXIT", "QUIT"):
+            raise SystemExit
+
+        cmd = self.parser.parse_command(source)
+
+        if cmd.line_number is not None:
+            # edit saved program
+            if cmd.command_type == CommandTypes.EMPTY:
+                # remove
+                self.program.pop(cmd, None)
             else:
-                # direct execution
-                try:
-                    cmd = self.parser.parse_statement(source)
-                    self.interpreter.run_code([cmd])
-                except Exception:
-                    traceback.print_exc()
-                    return
-            return
-
-        rest = self.parser.strip_whitespace(source[len(cmd) :])
-        try:
-            args = self.parser.parse(rest, list=True)
-        except Exception:
-            traceback.print_exc()
-            return
-
-        if cmd == "NEW":
-            assert len(args) == 0
+                # save
+                self.program[cmd.line_number] = cmd, source
+        # TODO: move this into interpreter
+        elif cmd.command_type == CommandTypes.NEW:
             self.program = {}
             self.interpreter.reset()
-        elif cmd == "RUN":
-            assert len(args) == 0
+        elif cmd.command_type == CommandTypes.RUN:
             sorted_code = sorted(
                 [cmd for cmd, _ in self.program.values()],
                 key=lambda cmd: cmd.line_number,
@@ -74,17 +54,9 @@ class CodyBasicREPL(code.InteractiveConsole):
             except Exception:
                 traceback.print_exc()
                 return
-        elif cmd == "LIST":
-            assert len(args) <= 2
-            if len(args) == 0:
-                start = -math.inf
-                end = math.inf
-            elif len(args) == 1:
-                start = self.interpreter.eval(args[0])
-                end = math.inf
-            elif len(args) == 2:
-                start = self.interpreter.eval(args[0])
-                end = self.interpreter.eval(args[1])
+        elif cmd.command_type == CommandTypes.LIST:
+            start = self.interpreter.eval(cmd.start) if cmd.start else -math.inf
+            end = self.interpreter.eval(cmd.end) if cmd.end else math.inf
             for _, line in sorted(
                 [
                     (cmd.line_number, line)
@@ -93,11 +65,13 @@ class CodyBasicREPL(code.InteractiveConsole):
                 ]
             ):
                 print(line)
-        elif cmd == "EXIT":
-            assert len(args) == 0
-            raise SystemExit
         else:
-            print(f"unknown command {cmd}")
+            # try direct execution
+            try:
+                self.interpreter.run_code([cmd])
+            except Exception:
+                traceback.print_exc()
+                return
 
 
 def repl():
