@@ -4,6 +4,7 @@ from typing import Optional, Iterable
 from cody_util import twos_complement
 import time
 import random
+import math
 
 
 class IO(ABC):
@@ -145,7 +146,7 @@ class Interpreter:
         if name == "ABS" and len(args) == 1:
             return twos_complement(abs(self.eval(args[0])))
         elif name == "SQR" and len(args) == 1:
-            return twos_complement(self.eval(args[0]) ** 2)
+            return twos_complement(math.isqrt(self.eval(args[0])))
         elif name == "MOD" and len(args) == 2:
             return twos_complement(self.eval(args[0]) % self.eval(args[1]))
         elif name == "RND" and len(args) <= 1:

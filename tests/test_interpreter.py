@@ -246,7 +246,7 @@ def test_builtin_function_sqr():
 10 PRINT SQR(10)
 """  # book page 273
     interp = run_code(code)
-    assert interp.io.output_log == ["100"]
+    assert interp.io.output_log == ["3"]
 
 
 def test_builtin_function_mod():
