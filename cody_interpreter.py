@@ -262,13 +262,18 @@ class Interpreter:
                 and isinstance(start, int)
                 and isinstance(length, int)
                 and 0 <= start < len(s)
-                and 0 <= length
-                and start + length < len(s)
+                and 0 <= length < len(s) - start
             )
             return s[start : start + length]
         elif name == "CHR$":
-            # TODO: use CODSCII charset (extended ascii)
-            value = "".join(map(lambda x: chr(self.eval(x)), args))
+
+            def codscii_chr(x):
+                value = self.eval(x)
+                assert 0 <= value < 256
+                # TODO: use CODSCII charset (extended ascii)
+                return chr(value)
+
+            value = "".join(map(codscii_chr, args))
             assert len(value) <= 255
             return value
         elif name == "STR$" and len(args) == 1:
@@ -297,8 +302,15 @@ class Interpreter:
             s = self.eval(args[0])
             assert isinstance(s, str)
             if len(s) > 0:
+
+                def codscii_ord(c):
+                    # TODO: use CODSCII charset (extended ascii)
+                    value = ord(c)
+                    assert 0 <= value < 256
+                    return value
+
                 # TODO: use CODSCII charset (extended ascii)
-                return twos_complement(ord(s[0]))
+                return codscii_ord(s[0])
             else:
                 return 0
         elif name == "PEEK" and len(args) == 1:
