@@ -1,19 +1,10 @@
-# python cody_basic.py examples/simple_array.bas
+# for repl: python cody_basic.py
+# for run a file: python cody_basic.py examples/simple_array.bas
 import sys
 import code
-import math
 import traceback
-from cody_parser import CodyBasicParser, CommandTypes
+from cody_parser import CodyBasicParser
 from cody_interpreter import Interpreter
-
-COMMANDS = [
-    "NEW",
-    "LOAD",
-    "SAVE",
-    "RUN",
-    "LIST",
-    "EXIT",
-]
 
 
 class CodyBasicREPL(code.InteractiveConsole):
@@ -48,18 +39,19 @@ def repl():
     CodyBasicREPL(parser, interp).interact(banner="Cody BASIC")
 
 
-def run_file():
+def run_file(filename):
     parser = CodyBasicParser()
-    parsed_code = parser.parse_file(sys.argv[1])
+    parsed = parser.parse_file(filename)
     interp = Interpreter()
-    interp.run_code(parsed_code)
+    interp.load(parsed_code)
+    interp.run()
 
 
 def main():
     if len(sys.argv) < 2:
         repl()
     else:
-        run_file()
+        run_file(sys.argv[1])
 
 
 if __name__ == "__main__":
