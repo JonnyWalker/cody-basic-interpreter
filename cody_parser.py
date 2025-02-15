@@ -1,6 +1,6 @@
 from enum import Enum, auto, unique
 from typing import Optional, Iterable
-from cody_util import twos_complement
+from cody_util import twos_complement, check_string
 
 
 @unique
@@ -250,7 +250,7 @@ class CodyBasicParser:
             else:
                 break
         node = ASTNode(ASTTypes.IntegerLiteral)
-        node.value = twos_complement(int(literal))
+        node.value = twos_complement(literal, convert=True)
         self.skip_whitespace()
         return node
 
@@ -264,9 +264,8 @@ class CodyBasicParser:
                 break
             else:
                 literal += c
-        assert len(literal) <= 255
         node = ASTNode(ASTTypes.StringLiteral)
-        node.literal = literal
+        node.literal = check_string(literal)
         self.skip_whitespace()
         return node
 

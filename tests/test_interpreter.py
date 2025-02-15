@@ -80,8 +80,8 @@ def test_variable_example2():
 30 PRINT M$,N$
 """  # book page 254
     interp = run_code(code)
-    assert interp.string_arrays["M"][0] == "HELLO "
-    assert interp.string_arrays["N"][0] == "WORLD!"
+    assert interp.strings["M"] == "HELLO "
+    assert interp.strings["N"] == "WORLD!"
     assert interp.io.output_log == ["HELLO WORLD!"]
 
 

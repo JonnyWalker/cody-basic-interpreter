@@ -1,7 +1,7 @@
 from cody_parser import ASTTypes, ASTNode, CommandTypes, Command
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable, Literal
-from cody_util import to_unsigned, twos_complement
+from cody_util import to_unsigned, twos_complement, check_string
 import time
 import random
 import math
@@ -41,7 +41,7 @@ class Interpreter:
         self.call_stack: list[int] = []
         self.loop_stack: list[tuple[str, int, int, int]] = []
         self.int_arrays: dict[str, dict[str, int]] = {}
-        self.string_arrays: dict[str, dict[str, str]] = {}
+        self.strings: dict[str, str] = {}
         self.data_pos: int = 0
         self.data_segment: list[int] = []
 
@@ -56,7 +56,7 @@ class Interpreter:
         self.call_stack.clear()
         self.loop_stack.clear()
         self.int_arrays.clear()
-        self.string_arrays.clear()
+        self.strings.clear()
         self.data_pos = 0
         self.data_segment.clear()
 
@@ -97,9 +97,8 @@ class Interpreter:
         elif target.ast_type == ASTTypes.StringVariable:
             # string arrays not supported
             assert index == 0
-            value = self.string_arrays.setdefault(target.name, {}).setdefault(index, "")
-            assert len(value) <= 255
-            return value
+            value = self.strings.setdefault(target.name, "")
+            return check_string(value)
         else:
             raise ValueError(f"cannot read from node {target.ast_type.name}")
 
@@ -107,16 +106,13 @@ class Interpreter:
         self, target: ASTNode, index: int, value: int | str, convert_int: bool = False
     ):
         if target.ast_type == ASTTypes.IntegerVariable:
-            if convert_int:
-                value = int(value)
-            else:
-                assert isinstance(value, int)
-            value = twos_complement(value)
+            value = twos_complement(value, convert=convert_int)
             self.int_arrays.setdefault(target.name, {})[index] = value
         elif target.ast_type == ASTTypes.StringVariable:
             # string arrays not supported
-            assert isinstance(value, str) and len(value) <= 255 and index == 0
-            self.string_arrays.setdefault(target.name, {})[index] = value
+            assert index == 0
+            value = check_string(value)
+            self.strings[target.name] = value
         else:
             raise ValueError(f"cannot write to node {target.ast_type.name}")
 
@@ -158,9 +154,7 @@ class Interpreter:
             if isinstance(left, int) and isinstance(right, int):
                 return twos_complement(left + right)
             else:
-                value = f"{left}{right}"
-                assert len(value) <= 255
-                return value
+                return check_string(f"{left}{right}")
         elif node.ast_type == ASTTypes.BinarySub:
             left = self.eval(node.left)
             right = self.eval(node.right)
@@ -181,8 +175,7 @@ class Interpreter:
             assert isinstance(expr, int)
             return twos_complement(-expr)
         elif node.ast_type == ASTTypes.StringLiteral:
-            assert isinstance(node.literal, str) and len(node.literal) <= 255
-            return node.literal
+            return check_string(node.literal)
         elif node.ast_type == ASTTypes.IntegerLiteral:
             return twos_complement(node.value)
         elif node.ast_type in (
@@ -201,7 +194,7 @@ class Interpreter:
 
     def eval_builtin_var(self, name):
         if name == "TI":
-            return twos_complement(int(time.monotonic() * 60))
+            return twos_complement(time.monotonic() * 60, convert=True)
         else:
             raise NotImplementedError(f"built-in variable {name} not implemented")
 
@@ -273,15 +266,11 @@ class Interpreter:
                 # TODO: use CODSCII charset (extended ascii)
                 return chr(value)
 
-            value = "".join(map(codscii_chr, args))
-            assert len(value) <= 255
-            return value
+            return check_string("".join(map(codscii_chr, args)))
         elif name == "STR$" and len(args) == 1:
             expr = self.eval(args[0])
             assert isinstance(expr, int)
-            value = str(expr)
-            assert len(value) <= 255
-            return value
+            return check_string(expr, convert=True)
         elif name == "VAL" and len(args) == 1:
             # "returns the number it was able to parse from the beginning of the string"
             s = self.eval(args[0])
@@ -293,7 +282,7 @@ class Interpreter:
                     digits.append(c)
                 else:
                     break
-            return twos_complement(int("".join(digits)))
+            return twos_complement("".join(digits), convert=True)
         elif name == "LEN" and len(args) == 1:
             expr = self.eval(args[0])
             assert isinstance(expr, str)
@@ -381,7 +370,7 @@ class Interpreter:
                 # TODO: implement AT and TAB functions in eval via IO
                 v = self.eval(expr)
                 if v is not None:
-                    self.io.print(str(v))
+                    self.io.print(check_string(v, convert=True))
 
             if not command.no_new_line:
                 self.io.println()
