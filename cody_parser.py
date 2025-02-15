@@ -105,37 +105,60 @@ class CodyBasicParser:
             return ""
         return self.string[self.pos]
 
+    def rest(self):
+        return self.string[self.pos :]
+
     def advance(self):
+        assert not self.is_eol()
         self.pos += 1
 
     def is_eol(self):
-        return len(self.string) == self.pos
+        return len(self.string) <= self.pos
 
-    def parse(self, string, list=False, ignore_tail=False):
-        self.pos = 0
-        self.string = string
-        if list:
-            node = self.parse_list()
+    def expect(self, s: str, skip_ws=True):
+        for c in s:
+            assert self.peek() == c
+            self.advance()
+        if skip_ws:
+            self.skip_whitespace()
+
+    def skip_whitespace(self):
+        while self.peek().isspace():
+            self.advance()
+
+    def parse(self, string=None, list=False, rel_op=False, ignore_tail=False):
+        if string is not None:
+            self.pos = 0
+            self.string = string
+            self.skip_whitespace()
         else:
-            node = self.parse_expr()
+            assert self.pos is not None and self.string is not None
+        if list:
+            node = self.parse_list(rel_op=rel_op)
+        else:
+            node = self.parse_expr(rel_op=rel_op)
         if not ignore_tail and self.peek():
             raise Exception("expected end of input")
         return node
 
-    def parse_list(self):
+    def parse_list(self, rel_op=False):
         nodes = []
         if self.peek():
-            nodes.append(self.parse_expr())
-            while "," in self.peek():
+            nodes.append(self.parse_expr(rel_op=rel_op))
+            while self.peek() == ",":
                 self.advance()
-                node = self.parse_expr()
+                self.skip_whitespace()
+                node = self.parse_expr(rel_op=rel_op)
                 nodes.append(node)
         return nodes
 
-    def parse_expr(self):
-        return self.parse_comparison()
+    def parse_expr(self, rel_op=False):
+        if rel_op:
+            return self.parse_rel_op()
+        else:
+            return self.parse_term()
 
-    def parse_comparison(self):
+    def parse_rel_op(self):
         ops = {
             "=": ASTTypes.Equal,
             "<>": ASTTypes.NotEqual,
@@ -146,6 +169,7 @@ class CodyBasicParser:
         }
         left = self.parse_term()
         while op_type := self.find_op(ops):
+            self.skip_whitespace()
             right = self.parse_term()
             node = ASTNode(op_type)
             node.left = left
@@ -160,6 +184,7 @@ class CodyBasicParser:
         }
         left = self.parse_factor()
         while op_type := self.find_op(ops):
+            self.skip_whitespace()
             right = self.parse_factor()
             node = ASTNode(op_type)
             node.left = left
@@ -175,6 +200,7 @@ class CodyBasicParser:
 
         left = self.parse_unary()
         while op_type := self.find_op(ops):
+            self.skip_whitespace()
             right = self.parse_unary()
             node = ASTNode(op_type)
             node.left = left
@@ -191,6 +217,7 @@ class CodyBasicParser:
         if not op_type:
             return self.parse_primary()
 
+        self.skip_whitespace()
         expr = self.parse_unary()
         node = ASTNode(op_type)
         node.expr = expr
@@ -199,19 +226,19 @@ class CodyBasicParser:
     def parse_primary(self):
         c = self.peek()
         if c == '"':
-            node = self.parse_string_literal()
+            return self.parse_string_literal()
         elif c == "(":
             self.advance()
+            self.skip_whitespace()
             node = self.parse_expr()
-            assert self.peek() == ")"
-            self.advance()
+            self.expect(")")
+            return node
         elif c.isdigit():
-            node = self.parse_integer_literal()
+            return self.parse_integer_literal()
         elif c.isalpha():
-            node = self.parse_variable_or_builtin()
+            return self.parse_variable_or_builtin()
         else:
             raise Exception("parse error")
-        return node
 
     def parse_integer_literal(self):
         literal = self.peek()
@@ -223,22 +250,23 @@ class CodyBasicParser:
                 break
         node = ASTNode(ASTTypes.IntegerLiteral)
         node.value = twos_complement(int(literal))
+        self.skip_whitespace()
         return node
 
     def parse_string_literal(self):
-        assert '"' == self.peek()
+        self.expect('"', skip_ws=False)
         literal = ""
         while True:
-            self.advance()
             c = self.peek()
+            self.advance()
             if c == '"':
                 break
             else:
                 literal += c
         assert len(literal) <= 255
-        self.advance()
         node = ASTNode(ASTTypes.StringLiteral)
         node.literal = literal
+        self.skip_whitespace()
         return node
 
     def parse_variable_or_builtin(self):
@@ -253,6 +281,7 @@ class CodyBasicParser:
         if c == "$":
             name += c
             self.advance()
+        self.skip_whitespace()
 
         if name in builtin_vars:
             param_mode = "none"
@@ -268,7 +297,7 @@ class CodyBasicParser:
         elif len(name) == 2 and name[1] == "$":
             # book page 253:
             # "Cody BASIC also has 26 string variables A$ through Z$"
-            param_mode = "array"
+            param_mode = "none"  # no arrays for string vars
             node = ASTNode(ASTTypes.StringVariable)
             name = name[0]  # TODO: maybe the name should include the $
         else:
@@ -279,12 +308,12 @@ class CodyBasicParser:
         if param_mode != "none":
             if self.peek() == "(":
                 self.advance()
+                self.skip_whitespace()
                 if self.peek() == ")":
                     expressions = []
                 else:
                     expressions = self.parse_list()
-                assert self.peek() == ")"
-                self.advance()
+                self.expect(")")
 
                 if param_mode == "array":
                     assert len(expressions) == 1
@@ -330,38 +359,28 @@ class CodyBasicParser:
         self.pos = initial_pos + (len(last_valid_token) if last_valid_token else 0)
         return ops[last_valid_token] if last_valid_token else None
 
-    def strip_whitespace(self, s: str) -> str:
-        stripped = ""
-        inside_string_literal = False
-        for char in s:
-            if char == '"':
-                inside_string_literal = not inside_string_literal
-            elif char == " ":
-                if not inside_string_literal:
-                    continue
-            stripped += char
-        return stripped
-
-    def parse_command(self, command: str) -> Command:
+    def parse_command(self, command: str, line_number: bool = True) -> Command:
         source = command
-
-        # (0) remove spaces, except in string literal
-        command = self.strip_whitespace(command)
+        command = command.strip()
 
         # (1) split line number if present
-        for i, c in enumerate(command):
-            if not c.isdigit():
-                break
+        if line_number:
+            for i, c in enumerate(command):
+                if not c.isdigit():
+                    break
+        else:
+            i = 0
         if i > 0:
             line_number = int(command[:i])
-            command = command[i:]
+            assert 0 <= line_number < 65535
+            command = command[i:].strip()
         else:
             line_number = None
 
         # (2) parse command type
         for command_type in CommandTypes:
             if command_type.valid_prefix and command.startswith(command_type.name):
-                other = command[len(command_type.name) :]
+                other = command[len(command_type.name) :].strip()
                 break
         else:  # special parsing case for empty string and assignments
             if not command:
@@ -390,12 +409,17 @@ class CodyBasicParser:
         ):
             if other:
                 raise Exception(
-                    f"expected end of line after command {c.command_type.name}, but was {other}"
+                    f"expected end of line after command {c.command_type.name}, but was '{other}'"
                 )
         elif c.command_type == CommandTypes.ASSIGNMENT:
-            ast = self.parse(other)
-            assert ast.ast_type == ASTTypes.Equal
-            c.lvalue, c.rvalue = ast.left, ast.right
+            c.lvalue = self.parse(other, ignore_tail=True)
+            assert c.lvalue.ast_type in (
+                ASTTypes.IntegerVariable,
+                ASTTypes.StringVariable,
+                ASTTypes.ArrayExpression,
+            )
+            self.expect("=")
+            c.rvalue = self.parse()
         elif c.command_type in (CommandTypes.GOTO, CommandTypes.GOSUB):
             c.expression = self.parse(other)
         elif c.command_type == CommandTypes.PRINT:
@@ -409,19 +433,43 @@ class CodyBasicParser:
                 raise Exception("expected end of line")
         elif c.command_type in (
             CommandTypes.INPUT,
-            CommandTypes.DATA,
             CommandTypes.READ,
         ):
             c.expressions = self.parse(other, list=True)
             assert len(c.expressions) >= 1
+        elif c.command_type == CommandTypes.DATA:
+            c.expressions = self.parse(other, list=True)
+            assert len(c.expressions) >= 1
+            for expr in c.expressions:
+                assert expr.ast_type == ASTTypes.IntegerLiteral or (
+                    expr.ast_type == ASTTypes.UnaryMinus
+                    and expr.expr.ast_type == ASTTypes.IntegerLiteral
+                )
         elif c.command_type == CommandTypes.IF:
-            condition, statement = other.split("THEN", 1)
-            c.condition = self.parse(condition)
-            c.command = self.parse_command(statement)
+            c.condition = self.parse(other, rel_op=True, ignore_tail=True)
+            assert c.condition.ast_type in (
+                ASTTypes.Equal,
+                ASTTypes.NotEqual,
+                ASTTypes.Less,
+                ASTTypes.LessEqual,
+                ASTTypes.Greater,
+                ASTTypes.GreaterEqual,
+            )
+            # TODO: check that for string comparisons the left side of the rel op must be a var
+            self.expect("THEN")
+            assert not self.is_eol()
+            c.command = self.parse_command(self.rest(), line_number=False)
         elif c.command_type == CommandTypes.FOR:
-            assignment, limit = other.split("TO", 1)
-            c.assignment = self.parse_command(assignment)
-            c.limit = self.parse(limit)
+            c.loop_variable = self.parse(other, ignore_tail=True)
+            assert c.loop_variable.ast_type in (
+                ASTTypes.IntegerVariable,
+                ASTTypes.StringVariable,
+                ASTTypes.ArrayExpression,
+            )
+            self.expect("=")
+            c.initial = self.parse(ignore_tail=True)
+            self.expect("TO")
+            c.limit = self.parse()
         elif c.command_type == CommandTypes.OPEN:
             c.uart, c.bit_rate = self.parse(other, list=True)
         elif c.command_type == CommandTypes.POKE:

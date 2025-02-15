@@ -151,7 +151,8 @@ def test_parse_for_example():
     parser = CodyBasicParser()
     parsed_code = parser.parse_lines(code)
     assert parsed_code[0].command_type == CommandTypes.FOR
-    assert parsed_code[0].assignment.command_type == CommandTypes.ASSIGNMENT
+    assert parsed_code[0].loop_variable.ast_type == ASTTypes.IntegerVariable
+    assert parsed_code[0].initial.ast_type == ASTTypes.IntegerLiteral
     assert parsed_code[0].limit.ast_type == ASTTypes.IntegerLiteral
     assert parsed_code[1].command_type == CommandTypes.PRINT
     assert parsed_code[2].command_type == CommandTypes.NEXT

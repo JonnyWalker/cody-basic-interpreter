@@ -358,16 +358,14 @@ class Interpreter:
             next_index = self.find_line_number(target)
         elif command.command_type == CommandTypes.FOR:
             assert self.running
-            assert command.assignment.command_type == CommandTypes.ASSIGNMENT
-            potential_jump_target = self._run_command(command.assignment)
-            assert potential_jump_target is None
+
+            loop_var, loop_var_index = self.compute_target(command.loop_variable)
+            assert loop_var.ast_type == ASTTypes.IntegerVariable
+            initial = self.eval(command.initial)
+            self.set_value(loop_var, loop_var_index, initial)
 
             limit = self.eval(command.limit)
-            loop_var, loop_var_index = self.compute_target(command.assignment.lvalue)
-            assert (
-                loop_var.ast_type == ASTTypes.IntegerVariable
-                and self.get_value(loop_var, loop_var_index) < limit
-            )
+            assert initial < limit
             self.loop_stack.append(
                 (loop_var, loop_var_index, limit, command.line_number)
             )
