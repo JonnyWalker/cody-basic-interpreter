@@ -396,6 +396,7 @@ class Interpreter:
             self.io.sys(address)
         elif command.command_type == CommandTypes.IF:
             value = self.eval(command.condition)
+            assert isinstance(value, bool)
             if (
                 value
                 and (potential_jump_target := self._run_command(command.command))
