@@ -14,6 +14,12 @@ class IO(ABC):
     @abstractmethod
     def println(self): ...
 
+    def print_at(self, row: int, col: int):
+        raise NotImplementedError("AT not implemented yet")
+
+    def print_tab(self, col: int):
+        raise NotImplementedError("TAB not implemented yet")
+
     @abstractmethod
     def input(self) -> str: ...
 
@@ -264,6 +270,12 @@ class Interpreter:
         elif name == "PEEK" and len(args) == 1:
             address = to_unsigned(self.eval(args[0]))
             return to_unsigned(self.io.peek(address), bits=8)
+        elif name == "AT" and len(args) == 2:
+            self.io.print_at(self.eval(args[0]), self.eval(args[y]))
+            return None
+        elif name == "TAB" and len(args) == 1:
+            self.io.print_tab(self.eval(args[0]))
+            return None
         else:
             raise NotImplementedError(
                 f"built-in function {name}/{len(args)} not implemented"
