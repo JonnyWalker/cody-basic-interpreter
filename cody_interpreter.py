@@ -395,7 +395,8 @@ class Interpreter:
         elif command.command_type == CommandTypes.RUN:
             assert self.repl
             self.reset()
-            next_index = self.find_line_number(-1, mode="next")
+            # precondition: self.program must be sorted, so 0 is the first line
+            next_index = 0
         elif command.command_type == CommandTypes.NEW:
             assert self.repl
             self.reset(program=True)
