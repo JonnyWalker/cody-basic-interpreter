@@ -1,4 +1,5 @@
 def to_unsigned(n, bits=16):
+    assert isinstance(n, int)
     return n & ((1 << bits) - 1)
 
 

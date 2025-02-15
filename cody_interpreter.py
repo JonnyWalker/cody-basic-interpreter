@@ -124,36 +124,37 @@ class Interpreter:
         if node.ast_type == ASTTypes.Equal:
             left = self.eval(node.left)
             right = self.eval(node.right)
-            assert type(left) == type(right)
+            assert isinstance(left, (int, str)) and type(left) == type(right)
             return left == right
         elif node.ast_type == ASTTypes.NotEqual:
             left = self.eval(node.left)
             right = self.eval(node.right)
-            assert type(left) == type(right)
+            assert isinstance(left, (int, str)) and type(left) == type(right)
             return left != right
         elif node.ast_type == ASTTypes.Less:
             left = self.eval(node.left)
             right = self.eval(node.right)
-            assert type(left) == type(right)
+            assert isinstance(left, (int, str)) and type(left) == type(right)
             return left < right
         elif node.ast_type == ASTTypes.LessEqual:
             left = self.eval(node.left)
             right = self.eval(node.right)
-            assert type(left) == type(right)
+            assert isinstance(left, (int, str)) and type(left) == type(right)
             return left <= right
         elif node.ast_type == ASTTypes.Greater:
             left = self.eval(node.left)
             right = self.eval(node.right)
-            assert type(left) == type(right)
+            assert isinstance(left, (int, str)) and type(left) == type(right)
             return left > right
         elif node.ast_type == ASTTypes.GreaterEqual:
             left = self.eval(node.left)
             right = self.eval(node.right)
-            assert type(left) == type(right)
+            assert isinstance(left, (int, str)) and type(left) == type(right)
             return left >= right
         elif node.ast_type == ASTTypes.BinaryAdd:
             left = self.eval(node.left)
             right = self.eval(node.right)
+            assert isinstance(left, (int, str)) and isinstance(right, (int, str))
             if isinstance(left, int) and isinstance(right, int):
                 return twos_complement(left + right)
             else:
@@ -163,17 +164,21 @@ class Interpreter:
         elif node.ast_type == ASTTypes.BinarySub:
             left = self.eval(node.left)
             right = self.eval(node.right)
+            assert isinstance(left, int) and isinstance(right, int)
             return twos_complement(left - right)
         elif node.ast_type == ASTTypes.BinaryMul:
             left = self.eval(node.left)
             right = self.eval(node.right)
+            assert isinstance(left, int) and isinstance(right, int)
             return twos_complement(left * right)
         elif node.ast_type == ASTTypes.BinaryDiv:
             left = self.eval(node.left)
             right = self.eval(node.right)
+            assert isinstance(left, int) and isinstance(right, int)
             return twos_complement(left // right)  # integer div
         elif node.ast_type == ASTTypes.UnaryMinus:
             expr = self.eval(node.expr)
+            assert isinstance(expr, int)
             return twos_complement(-expr)
         elif node.ast_type == ASTTypes.StringLiteral:
             assert isinstance(node.literal, str) and len(node.literal) <= 255
@@ -202,11 +207,18 @@ class Interpreter:
 
     def eval_builtin_function(self, name, args):
         if name == "ABS" and len(args) == 1:
-            return twos_complement(abs(self.eval(args[0])))
+            expr = self.eval(args[0])
+            assert isinstance(expr, int)
+            return twos_complement(abs(expr))
         elif name == "SQR" and len(args) == 1:
-            return twos_complement(math.isqrt(self.eval(args[0])))
+            expr = self.eval(args[0])
+            assert isinstance(expr, int)
+            return twos_complement(math.isqrt(expr))
         elif name == "MOD" and len(args) == 2:
-            return twos_complement(self.eval(args[0]) % self.eval(args[1]))
+            left = self.eval(args[0])
+            right = self.eval(args[1])
+            assert isinstance(left, int) and isinstance(right, int)
+            return twos_complement(left % right)
         elif name == "RND" and len(args) <= 1:
             # TODO: test this?
             # reference: page 273
@@ -223,19 +235,32 @@ class Interpreter:
             # "[...] generate random numbers between 0 and 255."
             return random.randrange(256)
         elif name == "NOT" and len(args) == 1:
-            return ~self.eval(args[0])
+            expr = self.eval(args[0])
+            assert isinstance(expr, int)
+            return twos_complement(~expr)
         elif name == "AND" and len(args) == 2:
-            return self.eval(args[0]) & self.eval(args[1])
+            left = self.eval(args[0])
+            right = self.eval(args[1])
+            assert isinstance(left, int) and isinstance(right, int)
+            return twos_complement(left & right)
         elif name == "OR" and len(args) == 2:
-            return self.eval(args[0]) | self.eval(args[1])
+            left = self.eval(args[0])
+            right = self.eval(args[1])
+            assert isinstance(left, int) and isinstance(right, int)
+            return twos_complement(left | right)
         elif name == "XOR" and len(args) == 2:
-            return self.eval(args[0]) ^ self.eval(args[1])
+            left = self.eval(args[0])
+            right = self.eval(args[1])
+            assert isinstance(left, int) and isinstance(right, int)
+            return twos_complement(left ^ right)
         elif name == "SUB$" and len(args) == 3:
             s = self.eval(args[0])
             start = self.eval(args[1])
             length = self.eval(args[2])
             assert (
                 isinstance(s, str)
+                and isinstance(start, int)
+                and isinstance(length, int)
                 and 0 <= start < len(s)
                 and 0 <= length
                 and start + length < len(s)
@@ -243,9 +268,15 @@ class Interpreter:
             return s[start : start + length]
         elif name == "CHR$":
             # TODO: use CODSCII charset (extended ascii)
-            return "".join(map(lambda x: chr(self.eval(x)), args))
+            value = "".join(map(lambda x: chr(self.eval(x)), args))
+            assert len(value) <= 255
+            return value
         elif name == "STR$" and len(args) == 1:
-            return str(self.eval(args[0]))
+            expr = self.eval(args[0])
+            assert isinstance(expr, int)
+            value = str(expr)
+            assert len(value) <= 255
+            return value
         elif name == "VAL" and len(args) == 1:
             # "returns the number it was able to parse from the beginning of the string"
             s = self.eval(args[0])
@@ -259,22 +290,30 @@ class Interpreter:
                     break
             return twos_complement(int("".join(digits)))
         elif name == "LEN" and len(args) == 1:
-            return len(self.eval(args[0]))
+            expr = self.eval(args[0])
+            assert isinstance(expr, str)
+            return len(expr)
         elif name == "ASC" and len(args) == 1:
             s = self.eval(args[0])
             assert isinstance(s, str)
             if len(s) > 0:
-                return ord(s[0])
+                # TODO: use CODSCII charset (extended ascii)
+                return twos_complement(ord(s[0]))
             else:
                 return 0
         elif name == "PEEK" and len(args) == 1:
             address = to_unsigned(self.eval(args[0]))
             return to_unsigned(self.io.peek(address), bits=8)
         elif name == "AT" and len(args) == 2:
-            self.io.print_at(self.eval(args[0]), self.eval(args[y]))
+            row = self.eval(args[0])
+            col = self.eval(args[1])
+            assert isinstance(row, int) and isinstance(col, int)
+            self.io.print_at(row, col)
             return None
         elif name == "TAB" and len(args) == 1:
-            self.io.print_tab(self.eval(args[0]))
+            row = self.eval(args[0])
+            assert isinstance(row, int)
+            self.io.print_tab(row)
             return None
         else:
             raise NotImplementedError(

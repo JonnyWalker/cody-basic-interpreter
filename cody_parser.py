@@ -168,7 +168,8 @@ class CodyBasicParser:
             ">=": ASTTypes.GreaterEqual,
         }
         left = self.parse_term()
-        while op_type := self.find_op(ops):
+        # no looping: only one rel_op allowed
+        if op_type := self.find_op(ops):
             self.skip_whitespace()
             right = self.parse_term()
             node = ASTNode(op_type)
