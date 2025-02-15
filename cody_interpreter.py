@@ -1,4 +1,4 @@
-from cody_parser import ASTTypes, ASTNode, CommandTypes, Command
+from cody_parser import CodyBasicParser, ASTTypes, ASTNode, CommandTypes, Command
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable, Literal
 from cody_util import to_unsigned, twos_complement, check_string
@@ -8,6 +8,10 @@ import math
 
 
 class IO(ABC):
+    def __init__(self):
+        self.uart: Optional[int] = None
+        self.bit_rate: Optional[int] = None
+
     @abstractmethod
     def print(self, value): ...
 
@@ -20,8 +24,37 @@ class IO(ABC):
     def print_tab(self, col: int):
         raise NotImplementedError("TAB not implemented yet")
 
+    def open_uart(self, uart: int, bit_rate: int):
+        assert self.uart is None and self.bit_rate is None
+        assert uart in (1, 2) and bit_rate in range(1, 16)
+        self.uart = uart
+        self.bit_rate = bit_rate
+
+    def close_uart(self):
+        self.uart = None
+        self.bit_rate = None
+
+    def load_text(self, uart: int) -> list[str]:
+        self.open_uart(uart, 15)  # bit rate 15 = 19200 baud
+        try:
+            lines = []
+            while line := self.input("?"):  # no space
+                lines.append(line)
+        finally:
+            self.close_uart()
+        return lines
+
+    def save_text(self, uart: int, lines: Iterable[str]):
+        self.open_uart(uart, 15)  # bit rate 15 = 19200 baud
+        try:
+            for line in lines:
+                self.print(line)
+                self.println()
+        finally:
+            self.close_uart()
+
     @abstractmethod
-    def input(self) -> str: ...
+    def input(self, prompt: str) -> str: ...
 
     def peek(self, address: int) -> int:
         raise NotImplementedError("PEEK not implemented yet")
@@ -213,7 +246,6 @@ class Interpreter:
             assert isinstance(left, int) and isinstance(right, int)
             return twos_complement(left % right)
         elif name == "RND" and len(args) <= 1:
-            # TODO: test this?
             # reference: page 273
             # "The function has two forms, one that accepts a number as the random seed value, and a no-argument form that returns the next random number in the sequence."
             if len(args) == 1:
@@ -298,7 +330,6 @@ class Interpreter:
                     assert 0 <= value < 256
                     return value
 
-                # TODO: use CODSCII charset (extended ascii)
                 return codscii_ord(s[0])
             else:
                 return 0
@@ -347,12 +378,20 @@ class Interpreter:
                     self.io.println()
         elif command.command_type == CommandTypes.LOAD:
             assert self.repl
-            # TODO: load from command.uart in mode command.mode
-            raise NotImplementedError("LOAD not implemented yet")
+            uart = self.eval(command.uart)
+            mode = self.eval(command.mode)
+            assert mode in (0, 1)
+            if mode == 0:  # text mode
+                lines = self.io.load_text(uart)
+                parser = CodyBasicParser()
+                parsed = self.parser.parse_lines(lines)
+                self.load(parsed)
+            else:
+                raise NotImplementedError("LOAD in binary mode not supported")
         elif command.command_type == CommandTypes.SAVE:
             assert self.repl
-            # TODO: save to command.uart
-            raise NotImplementedError("SAVE not implemented yet")
+            uart = self.eval(command.uart)
+            self.io.save_text(uart, map(lambda cmd: cmd.source, self.program))
         elif command.command_type == CommandTypes.RUN:
             assert self.repl
             self.reset()
@@ -367,7 +406,6 @@ class Interpreter:
         elif command.command_type == CommandTypes.PRINT:
             value = ""
             for expr in command.expressions:
-                # TODO: implement AT and TAB functions in eval via IO
                 v = self.eval(expr)
                 if v is not None:
                     self.io.print(check_string(v, convert=True))
@@ -378,16 +416,16 @@ class Interpreter:
             assert self.running
             for expr in command.expressions:
                 target, index = self.compute_target(expr)
-                value = self.io.input()
+                value = self.io.input("? ")
                 self.set_value(target, index, value, convert_int=True)
         elif command.command_type == CommandTypes.OPEN:
             assert self.running
-            # TODO: open command.uart with command.bit_rate
-            raise NotImplementedError("OPEN not implemented yet")
+            uart = self.eval(command.uart)
+            bit_rate = self.eval(command.bit_rate)
+            self.io.open_uart(uart, bit_rate)
         elif command.command_type == CommandTypes.CLOSE:
             assert self.running
-            # TODO: close opened uart
-            raise NotImplementedError("CLOSE not implemented yet")
+            self.io.close_uart()
         elif command.command_type == CommandTypes.POKE:
             address = to_unsigned(self.eval(command.address))
             value = to_unsigned(self.eval(command.expression), bits=8)
@@ -529,14 +567,23 @@ class Interpreter:
 
 
 class StdIO(IO):
+    def __init__(self):
+        super().__init__()
+
     def print(self, value: str):
+        if self.uart is not None or self.bit_rate is not None:
+            raise NotImplementedError("printing to uart not supported")
         print(value, end="")
 
     def println(self):
+        if self.uart is not None or self.bit_rate is not None:
+            raise NotImplementedError("printing to uart not supported")
         print()
 
-    def input(self) -> str:
-        return input("? ")
+    def input(self, prompt: str) -> str:
+        if self.uart is not None or self.bit_rate is not None:
+            raise NotImplementedError("reading from uart not supported")
+        return input(prompt)
 
 
 class TestIO(IO):
@@ -544,31 +591,51 @@ class TestIO(IO):
     __test__ = False
 
     def __init__(
-        self, inputs: Optional[Iterable[str]] = None, print_inputs: bool = False
+        self,
+        *,
+        inputs: Optional[Iterable[str]] = None,
+        uart_inputs: Optional[dict[int, list[str]]] = None,
+        print_prompts: bool = False,
+        print_inputs: bool = False,
     ):
-        self.inputs = list(inputs) if inputs else None
-        self.print_inputs: bool = print_inputs
+        super().__init__()
+        self.inputs: list[str] = list(inputs) if inputs else []
+        self.uart_inputs: dict[int, list[str]] = uart_inputs if uart_inputs else {}
+        self.print_inputs = print_inputs
+        self.print_prompts = print_inputs
         self.output_log: list[str] = []
-        # flag to indicate that the last input ended on a newline
-        self.new_line: bool = True
+        self.uart_log: dict[int, list[str]] = {}
+        # flag to indicate whether the last printed line ended on a newline
+        self.new_line: dict[Optional[int], bool] = {None: True, 1: True, 2: False}
+
+    def _olog(self) -> list[str]:
+        if self.uart is None:
+            return self.output_log
+        else:
+            return self.output_log.setdefault(self.uart, [])
+
+    def _ilog(self) -> list[str]:
+        if self.uart is None:
+            return self.inputs
+        else:
+            return self.uart_inputs.get(self.uart, [])
 
     def print(self, value: str):
-        if self.new_line:
-            self.output_log.append("")
-            self.new_line = False
-        self.output_log[-1] += value
+        if self.new_line[self.uart]:
+            self._olog().append("")
+            self.new_line[self.uart] = False
+        self._olog()[-1] += value
 
     def println(self):
         self.print("")
-        self.new_line = True
+        self.new_line[self.uart] = True
 
-    def input(self) -> str:
-        result = str(self.inputs.pop(0))
+    def input(self, prompt: str) -> str:
+        result = str(self._ilog().pop(0))
+        if self.print_prompts:
+            self.print(prompt)
         if self.print_inputs:
-            self.print("? ")
             self.print(result)
-            self.println()
-        elif not self.new_line:
-            # print new line after custom prompt if required
+        if self.print_prompts or self.print_inputs or not self.new_line:
             self.println()
         return result

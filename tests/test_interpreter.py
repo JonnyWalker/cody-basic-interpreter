@@ -5,11 +5,23 @@ from typing import Optional, Iterable
 
 
 def run_code(
-    code: str, inputs: Optional[Iterable[str]] = None, print_inputs: bool = False
+    code: str,
+    inputs: Optional[Iterable[str]] = None,
+    *,
+    uart_inputs: Optional[dict[int, list[str]]] = None,
+    print_prompts: bool = False,
+    print_inputs: bool = False,
 ) -> Interpreter:
     parser = CodyBasicParser()
     parsed = parser.parse_string(code)
-    interp = Interpreter(TestIO(inputs, print_inputs))
+    interp = Interpreter(
+        TestIO(
+            inputs=inputs,
+            uart_inputs=uart_inputs,
+            print_prompts=print_prompts,
+            print_inputs=print_inputs,
+        )
+    )
     interp.load(parsed)
     interp.run()
     return interp

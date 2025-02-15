@@ -299,7 +299,7 @@ class CodyBasicParser:
             # "Cody BASIC also has 26 string variables A$ through Z$"
             param_mode = "none"  # no arrays for string vars
             node = ASTNode(ASTTypes.StringVariable)
-            name = name[0]  # TODO: maybe the name should include the $
+            name = name[0]
         else:
             raise NotImplementedError(f"unknown built-in {name}")
         node.name = name
