@@ -392,6 +392,7 @@ class CodyBasicParser:
                 other = command
             else:
                 raise NotImplementedError("error! unknown command: " + source)
+        # TODO: dont save source in command but instead save tokens or implement a pretty printer
         c = Command(command_type, line_number, source)
 
         # (3) parse other parts
