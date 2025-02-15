@@ -21,57 +21,19 @@ class CodyBasicREPL(code.InteractiveConsole):
         super().__init__(local_exit, **kwargs)
         self.parser = parser
         self.interpreter = interpreter
-        self.program = {}
 
     def runsource(self, source, filename="<input>", symbol="single"):
-        source = source.strip()
+        source = source.strip() if isinstance(source, str) else ""
         if not source:
             return
         elif source in ("EXIT", "QUIT"):
             raise SystemExit
 
-        cmd = self.parser.parse_command(source)
-
-        if cmd.line_number is not None:
-            # edit saved program
-            if cmd.command_type == CommandTypes.EMPTY:
-                # remove
-                self.program.pop(cmd, None)
-            else:
-                # save
-                self.program[cmd.line_number] = cmd, source
-        # TODO: move this into interpreter
-        elif cmd.command_type == CommandTypes.NEW:
-            self.program = {}
-            self.interpreter.reset()
-        elif cmd.command_type == CommandTypes.RUN:
-            sorted_code = sorted(
-                [cmd for cmd, _ in self.program.values()],
-                key=lambda cmd: cmd.line_number,
-            )
-            try:
-                self.interpreter.run_code(sorted_code)
-            except Exception:
-                traceback.print_exc()
-                return
-        elif cmd.command_type == CommandTypes.LIST:
-            start = self.interpreter.eval(cmd.start) if cmd.start else -math.inf
-            end = self.interpreter.eval(cmd.end) if cmd.end else math.inf
-            for _, line in sorted(
-                [
-                    (cmd.line_number, line)
-                    for cmd, line in self.program.values()
-                    if start <= cmd.line_number <= end
-                ]
-            ):
-                print(line)
-        else:
-            # try direct execution
-            try:
-                self.interpreter.run_code([cmd])
-            except Exception:
-                traceback.print_exc()
-                return
+        try:
+            cmd = self.parser.parse_command(source)
+            self.interpreter.run_command(cmd)
+        except Exception:
+            traceback.print_exc()
 
 
 def repl():

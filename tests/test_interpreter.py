@@ -10,7 +10,8 @@ def run_code(
     parser = CodyBasicParser()
     parsed = parser.parse_string(code)
     interp = Interpreter(TestIO(inputs, print_inputs))
-    interp.run_code(parsed)
+    interp.load(parsed)
+    interp.run()
     return interp
 
 
@@ -371,5 +372,4 @@ def test_data():
 100 DATA 3,15,8,2,-1
 """  # book page 299
     interp = run_code(code)
-    assert interp.data_segment == [[3, 10, 12, 7, 6], [3, 15, 8, 2, -1]]
     assert interp.io.output_log == ["TOTAL 66", "COUNT 9", "AVERAGE 7"]

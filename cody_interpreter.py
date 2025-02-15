@@ -1,7 +1,7 @@
-from cody_parser import ASTTypes, CommandTypes
+from cody_parser import ASTTypes, ASTNode, CommandTypes, Command
 from abc import ABC, abstractmethod
-from typing import Optional, Iterable
-from cody_util import twos_complement
+from typing import Optional, Iterable, Literal
+from cody_util import to_unsigned, twos_complement
 import time
 import random
 import math
@@ -17,40 +17,102 @@ class IO(ABC):
     @abstractmethod
     def input(self) -> str: ...
 
+    def peek(self, address: int) -> int:
+        raise NotImplementedError("PEEK not implemented yet")
+
+    def poke(self, address: int, value: int):
+        raise NotImplementedError("POKE not implemented yet")
+
+    def sys(self, address: int):
+        raise NotImplementedError("SYS not implemented yet")
+
 
 class Interpreter:
     def __init__(self, io: Optional[IO] = None):
         self.io = io if io is not None else StdIO()
-        self.reset()
+        self.program = []  # sorted list of commands (by line number)
+        self.running: bool = False  # True if running program, False if in repl mode
+        self.call_stack: list[int] = []
+        self.loop_stack: list[tuple[str, int, int, int]] = []
+        self.int_arrays: dict[str, dict[str, int]] = {}
+        self.string_arrays: dict[str, dict[str, str]] = {}
+        self.data_pos: int = 0
+        self.data_segment: list[int] = []
 
-    def compute_target(self, node):
+    @property
+    def repl(self):
+        return not self.running
+
+    def reset(self, program=False):
+        if program:
+            self.program.clear()
+        self.running = False
+        self.call_stack.clear()
+        self.loop_stack.clear()
+        self.int_arrays.clear()
+        self.string_arrays.clear()
+        self.data_pos = 0
+        self.data_segment.clear()
+
+    def find_line_number(
+        self,
+        line_number: int,
+        mode: Literal["exact", "next"] = "exact",
+        default: Optional[int] = None,
+    ) -> Optional[int]:
+        # precondition: self.program must be sorted!
+        # TODO: smarter algorithm
+        for i, cmd in enumerate(self.program):
+            assert 0 <= cmd.line_number <= 65535
+            if cmd.line_number == line_number and mode == "exact":
+                return i
+            elif cmd.line_number > line_number:
+                if mode == "exact":
+                    raise IndexError(f"could not find line number {line_number}")
+                else:
+                    return i
+        return default
+
+    def compute_target(self, node: ASTNode) -> tuple[ASTNode, int]:
         if node.ast_type == ASTTypes.ArrayExpression:
-            index = node.index
             target = node.subnode
-        elif node.ast_type in (
-            ASTTypes.IntegerVariable,
-            ASTTypes.StringVariable,
-            ASTTypes.BuiltInVariable,
-        ):
-            index = 0
+            index = self.eval(node.index)
+        elif node.ast_type in (ASTTypes.IntegerVariable, ASTTypes.StringVariable):
             target = node
+            index = 0
         else:
-            raise ValueError(f"cannot read/write to node {node.ast_type}")
-        return index, target
+            raise ValueError(f"cannot read/write to node {node.ast_type.name.name}")
+        return target, index
 
-    def add_value(self, target, value, index, convert_int=False):
+    def get_value(self, target: ASTNode, index: int) -> int | str:
+        if target.ast_type == ASTTypes.IntegerVariable:
+            value = self.int_arrays.setdefault(target.name, {}).setdefault(index, 0)
+            return twos_complement(value)
+        elif target.ast_type == ASTTypes.StringVariable:
+            # string arrays not supported
+            assert index == 0
+            value = self.string_arrays.setdefault(target.name, {}).setdefault(index, "")
+            assert len(value) <= 255
+            return value
+        else:
+            raise ValueError(f"cannot read from node {target.ast_type.name}")
+
+    def set_value(
+        self, target: ASTNode, index: int, value: int | str, convert_int: bool = False
+    ):
         if target.ast_type == ASTTypes.IntegerVariable:
             if convert_int:
                 value = int(value)
             else:
                 assert isinstance(value, int)
-            self.int_arrays.setdefault(target.name, {})[index] = twos_complement(value)
+            value = twos_complement(value)
+            self.int_arrays.setdefault(target.name, {})[index] = value
         elif target.ast_type == ASTTypes.StringVariable:
             # string arrays not supported
             assert isinstance(value, str) and len(value) <= 255 and index == 0
             self.string_arrays.setdefault(target.name, {})[index] = value
         else:
-            raise ValueError(f"cannot write to node {target.ast_type}")
+            raise ValueError(f"cannot write to node {target.ast_type.name}")
 
     def eval(self, node):
         if node.ast_type == ASTTypes.Equal:
@@ -117,24 +179,14 @@ class Interpreter:
             ASTTypes.StringVariable,
             ASTTypes.ArrayExpression,
         ):
-            index, target = self.compute_target(node)
-            if target.ast_type == ASTTypes.IntegerVariable:
-                array = self.int_arrays.setdefault(target.name, {})
-                return twos_complement(array.setdefault(index, 0))
-            elif target.ast_type == ASTTypes.StringVariable:
-                assert index == 0  # string arrays not supported
-                array = self.string_arrays.setdefault(target.name, {})
-                value = array.setdefault(index, "")
-                assert isinstance(value, str) and len(value) <= 255
-                return value
-            else:
-                raise AssertionError
+            target, index = self.compute_target(node)
+            return self.get_value(target, index)
         elif node.ast_type == ASTTypes.BuiltInVariable:
             return self.eval_builtin_var(node.name)
         elif node.ast_type == ASTTypes.BuiltInCall:
             return self.eval_builtin_function(node.name, node.expressions)
         else:
-            raise NotImplementedError(f"ast type {node.ast_type} not implemented")
+            raise NotImplementedError(f"ast type {node.ast_type.name} not implemented")
 
     def eval_builtin_var(self, name):
         if name == "TI":
@@ -209,22 +261,57 @@ class Interpreter:
                 return ord(s[0])
             else:
                 return 0
+        elif name == "PEEK" and len(args) == 1:
+            address = to_unsigned(self.eval(args[0]))
+            return to_unsigned(self.io.peek(address), bits=8)
         else:
             raise NotImplementedError(
                 f"built-in function {name}/{len(args)} not implemented"
             )
 
-    def run_command(self, command):
+    def _run_command(self, command: Command) -> Optional[int]:
+        if self.repl and command.line_number is not None:
+            # repl mode but the command has a line number:
+            # edit saved program
+            self.load_command(command)
+            return  # done
+
+        next_index = "recalc"
         if command.command_type in (
             CommandTypes.REM,
             CommandTypes.EMPTY,
             CommandTypes.DATA,
         ):
             pass  # ignore comments and (already precomputed) DATA values
+        elif command.command_type == CommandTypes.LIST:
+            assert self.repl
+            start = self.eval(command.start) if command.start else None
+            end = self.eval(command.end) if command.end else None
+            for cmd in self.program:
+                if (start is None or start <= cmd.line_number) and (
+                    end is None or cmd.line_number <= end
+                ):
+                    self.io.print(cmd.source)
+                    self.io.println()
+        elif command.command_type == CommandTypes.LOAD:
+            assert self.repl
+            # TODO: load from command.uart in mode command.mode
+            raise NotImplementedError("LOAD not implemented yet")
+        elif command.command_type == CommandTypes.SAVE:
+            assert self.repl
+            # TODO: save to command.uart
+            raise NotImplementedError("SAVE not implemented yet")
+        elif command.command_type == CommandTypes.RUN:
+            assert self.repl
+            self.reset()
+            next_index = self.find_line_number(-1, mode="next")
+        elif command.command_type == CommandTypes.NEW:
+            assert self.repl
+            self.reset(program=True)
         elif command.command_type == CommandTypes.ASSIGNMENT:
-            index, target = self.compute_target(command.lvalue)
+            target, index = self.compute_target(command.lvalue)
             value = self.eval(command.rvalue)
-            self.add_value(target, value, index)
+            self.set_value(target, index, value)
         elif command.command_type == CommandTypes.PRINT:
             value = ""
             for expr in command.expressions:
@@ -236,109 +323,158 @@ class Interpreter:
             if not command.no_new_line:
                 self.io.println()
         elif command.command_type == CommandTypes.INPUT:
+            assert self.running
             for expr in command.expressions:
-                index, target = self.compute_target(expr)
+                target, index = self.compute_target(expr)
                 value = self.io.input()
-                self.add_value(target, value, index, convert_int=True)
+                self.set_value(target, index, value, convert_int=True)
+        elif command.command_type == CommandTypes.OPEN:
+            assert self.running
+            # TODO: open command.uart with command.bit_rate
+            raise NotImplementedError("OPEN not implemented yet")
+        elif command.command_type == CommandTypes.CLOSE:
+            assert self.running
+            # TODO: close opened uart
+            raise NotImplementedError("CLOSE not implemented yet")
+        elif command.command_type == CommandTypes.POKE:
+            address = to_unsigned(self.eval(command.address))
+            value = to_unsigned(self.eval(command.expression), bits=8)
+            self.io.poke(address, value)
+        elif command.command_type == CommandTypes.SYS:
+            address = to_unsigned(self.eval(command.address))
+            self.io.sys(address)
         elif command.command_type == CommandTypes.IF:
             value = self.eval(command.condition)
-            if value:
-                self.run_command(command.command)
+            if (
+                value
+                and (potential_jump_target := self._run_command(command.command))
+                is not None
+            ):
+                next_index = potential_jump_target
         elif command.command_type == CommandTypes.GOTO:
-            number = self.eval(command.expression)
-            assert isinstance(number, int)
-            # TODO: precompute hashmap with jump target to do this in O(1)
-            for index, target in enumerate(self.code):
-                if target.line_number == number:
-                    self.next_index = index
-                    break
+            assert self.running
+            target = self.eval(command.expression)
+            assert isinstance(target, int)
+            next_index = self.find_line_number(target)
         elif command.command_type == CommandTypes.FOR:
+            assert self.running
             assert command.assignment.command_type == CommandTypes.ASSIGNMENT
-            self.run_command(command.assignment)
+            potential_jump_target = self._run_command(command.assignment)
+            assert potential_jump_target is None
+
             limit = self.eval(command.limit)
-            variable = command.assignment.lvalue
-            assert variable.ast_type == ASTTypes.IntegerVariable
-            self.loop_stack.append((variable.name, limit, self.next_index))
-            assert self.int_arrays[variable.name][0] < limit
+            loop_var, loop_var_index = self.compute_target(command.assignment.lvalue)
+            assert (
+                loop_var.ast_type == ASTTypes.IntegerVariable
+                and self.get_value(loop_var, loop_var_index) < limit
+            )
+            self.loop_stack.append(
+                (loop_var, loop_var_index, limit, command.line_number)
+            )
         elif command.command_type == CommandTypes.NEXT:
-            name, limit, next_index = self.loop_stack[-1]
-            current_value = self.int_arrays[name][0]
-            if current_value == limit:
-                pass
+            assert self.running
+            loop_var, loop_var_index, limit, for_line_number = self.loop_stack[-1]
+            current_value = self.get_value(loop_var, loop_var_index)
+            if current_value >= limit:
+                self.loop_stack.pop()
             else:
-                self.int_arrays[name][0] = current_value + 1
-                self.next_index = next_index
+                self.set_value(loop_var, loop_var_index, current_value + 1)
+                next_index = self.find_line_number(for_line_number, mode="next")
         elif command.command_type == CommandTypes.GOSUB:
-            number = self.eval(command.expression)
-            assert isinstance(number, int)
-            self.call_stack.append(self.next_index)
-            # TODO: precompute hashmap with jump target to do this in O(1)
-            for index, target in enumerate(self.code):
-                if target.line_number == number:
-                    self.next_index = index
-                    break
+            assert self.running
+            target = self.eval(command.expression)
+            assert isinstance(target, int)
+            self.call_stack.append(command.line_number)
+            next_index = self.find_line_number(target)
         elif command.command_type == CommandTypes.RETURN:
-            self.next_index = self.call_stack.pop()
+            assert self.running
+            next_index = self.find_line_number(self.call_stack.pop(), mode="after")
         elif command.command_type == CommandTypes.END:
-            self.next_index = len(self.code)  # FIXME: remove hack
+            assert self.running
+            next_index = None
         elif command.command_type == CommandTypes.READ:
             for expr in command.expressions:
-                index, target = self.compute_target(expr)
+                target, index = self.compute_target(expr)
                 # only integer variables supported
                 assert target.ast_type == ASTTypes.IntegerVariable
                 value = self.read_next_data_value()
-                self.add_value(target, value, index)
+                self.set_value(target, index, value)
         elif command.command_type == CommandTypes.RESTORE:
-            self.reset_data_pos()
+            self.data_pos = 0
+            self.data_segment.clear()
         else:
             raise NotImplementedError(
                 f"command type {command.command_type.name} not implemented"
             )
 
-    def run_code(self, code):
-        # TODO: remove unexpected side-effect from run_code
-        self.setup_data_segment(code)
-        self.code = code
-        self.next_index = 0
-        while self.next_index < len(code):
-            command = code[self.next_index]
-            self.next_index += 1
-            self.run_command(command)
+        if next_index == "recalc":
+            if command.line_number is not None:
+                return self.find_line_number(command.line_number, mode="next")
+            else:
+                return None
+        else:
+            return next_index
 
-    def reset(self):
-        self.int_arrays = {}  # maps variable names to values
-        self.string_arrays = {}  # maps variable names to values
-        self.call_stack = []
-        self.loop_stack = []
-        self.reset_data_pos()
-        self.data_segment = []
-        self.code = []
-        self.next_index = 0
+    def load(self, code: Iterable[Command]):
+        self.run_command(Command(CommandTypes.NEW))
+        for cmd in code:
+            self.load_command(cmd)
 
-    def reset_data_pos(self):
-        self.data_pos = (0, 0)
+    def load_command(self, command: Command):
+        assert command.line_number is not None
+        if command.command_type == CommandTypes.EMPTY:
+            # remove
+            try:
+                del self.program[self.find_line_number(command.line_number)]
+            except Exception:
+                pass
+        else:
+            # save
+            idx = self.find_line_number(
+                command.line_number, mode="exact_or_next", default=len(self.program)
+            )
+            if (
+                idx < len(self.program)
+                and self.program[idx].line_number == command.line_number
+            ):
+                # override
+                self.program[idx] = command
+            else:
+                # new line
+                self.program.insert(idx, command)
 
-    def setup_data_segment(self, code):
-        """
-        Precomputes the DATA values by evaluating all data statements.
-        """
-        # values will be added by DATA statement
-        for command in code:
-            if command.command_type == CommandTypes.DATA:
-                values = []
-                for expr in command.expressions:
-                    value = self.eval(expr)
-                    values.append(value)
-                self.data_segment.append(values)
+    def run(self):
+        self.run_command(Command(CommandTypes.RUN))
+
+    def run_command(self, command: Command):
+        assert self.repl
+        next_index = self._run_command(command)
+        self._run_loop(next_index)
+
+    def _run_loop(self, next_index: Optional[int]):
+        assert self.repl
+        self.running = True
+        try:
+            while next_index is not None:
+                cmd = self.program[next_index]
+                next_index = self._run_command(cmd)
+        finally:
+            self.running = False
 
     def read_next_data_value(self):
-        line, index = self.data_pos
-        value = self.data_segment[line][index]
-        if len(self.data_segment[line]) == index + 1:
-            self.data_pos = (line + 1, 0)
-        else:  # move to next "line"
-            self.data_pos = (line, index + 1)
-        return value
+        if not self.data_segment:
+            if self.data_pos >= len(self.program):
+                raise ValueError("no more data values")
+
+            # find next DATA command
+            for i in range(self.data_pos, len(self.program)):
+                cmd = self.program[i]
+                if cmd.command_type == CommandTypes.DATA:
+                    self.data_pos = i + 1
+                    self.data_segment = list(map(self.eval, cmd.expressions))
+                    break
+
+        return self.data_segment.pop(0)
 
 
 class StdIO(IO):

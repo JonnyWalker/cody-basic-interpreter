@@ -88,7 +88,8 @@ def test_parse_array_expression():
     assert command.line_number == 10
     assert command.command_type == CommandTypes.ASSIGNMENT
     assert command.lvalue.ast_type == ASTTypes.ArrayExpression
-    assert command.lvalue.index == 0
+    assert command.lvalue.index.ast_type == ASTTypes.IntegerLiteral
+    assert command.lvalue.index.value == 0
     assert command.lvalue.subnode.ast_type == ASTTypes.IntegerVariable
     assert command.rvalue.ast_type == ASTTypes.IntegerLiteral
 

@@ -83,9 +83,15 @@ builtin_vars = [
 
 
 class Command:
-    def __init__(self, command_type: CommandTypes, line_number: Optional[int] = None):
+    def __init__(
+        self,
+        command_type: CommandTypes,
+        line_number: Optional[int] = None,
+        source: Optional[str] = None,
+    ):
         self.command_type = command_type
-        self.line_number: Optional[int] = line_number
+        self.line_number = line_number
+        self.source = source
 
 
 class ASTNode:
@@ -281,15 +287,11 @@ class CodyBasicParser:
                 self.advance()
 
                 if param_mode == "array":
-                    # TODO: do array subscripts have to be literals?
-                    assert (
-                        len(expressions) == 1
-                        and expressions[0].ast_type == ASTTypes.IntegerLiteral
-                    )
+                    assert len(expressions) == 1
                     subnode = node
                     node = ASTNode(ASTTypes.ArrayExpression)
                     node.subnode = subnode
-                    node.index = expressions[0].value
+                    node.index = expressions[0]
                 else:
                     # built-in functions can take any number of parameters
                     assert param_mode == "any"
@@ -341,6 +343,8 @@ class CodyBasicParser:
         return stripped
 
     def parse_command(self, command: str) -> Command:
+        source = command
+
         # (0) remove spaces, except in string literal
         command = self.strip_whitespace(command)
 
@@ -368,8 +372,8 @@ class CodyBasicParser:
                 command_type = CommandTypes.ASSIGNMENT
                 other = command
             else:
-                raise NotImplementedError("error! unknown command: " + command)
-        c = Command(command_type, line_number)
+                raise NotImplementedError("error! unknown command: " + source)
+        c = Command(command_type, line_number, source)
 
         # (3) parse other parts
         if c.command_type == CommandTypes.REM:
@@ -429,6 +433,10 @@ class CodyBasicParser:
             assert len(exprs) <= 2
             c.start = exprs[0] if len(exprs) >= 1 else None
             c.end = exprs[1] if len(exprs) >= 2 else None
+        elif c.command_type == CommandTypes.LOAD:
+            c.uart, c.mode = self.parse(other, list=True)
+        elif c.command_type == CommandTypes.SAVE:
+            c.uart = self.parse(other)
         else:
             raise NotImplementedError(
                 f"command type {c.command_type.name} not implemented"
