@@ -553,16 +553,15 @@ class Interpreter:
 
     def read_next_data_value(self):
         if not self.data_segment:
-            if self.data_pos >= len(self.program):
-                raise ValueError("no more data values")
-
             # find next DATA command
             for i in range(self.data_pos, len(self.program)):
                 cmd = self.program[i]
-                if cmd.command_type == CommandTypes.DATA:
+                if cmd.command_type == CommandTypes.DATA and cmd.expressions:
                     self.data_pos = i + 1
                     self.data_segment = list(map(self.eval, cmd.expressions))
                     break
+            else:
+                raise ValueError("no more data values")
 
         return self.data_segment.pop(0)
 
