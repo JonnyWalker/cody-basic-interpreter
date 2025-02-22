@@ -56,6 +56,9 @@ class IO(ABC):
     @abstractmethod
     def input(self, prompt: str) -> str: ...
 
+    def prompt_char(self):
+        return "?"
+
     def peek(self, address: int) -> int:
         raise NotImplementedError("PEEK not implemented yet")
 
@@ -417,7 +420,7 @@ class Interpreter:
             assert self.running
             for expr in command.expressions:
                 target, index = self.compute_target(expr)
-                value = self.io.input("? ")
+                value = self.io.input(f"{self.io.prompt_char()} ")
                 self.set_value(target, index, value, convert_int=True)
         elif command.command_type == CommandTypes.OPEN:
             assert self.running
@@ -573,7 +576,8 @@ class StdIO(IO):
     def print(self, value: str):
         if self.uart is not None or self.bit_rate is not None:
             raise NotImplementedError("printing to uart not supported")
-        print(value, end="")
+        # can only print ascii printable chars to the console
+        print(check_string(value, allowed_chars="ascii_printable"), end="")
 
     def println(self):
         if self.uart is not None or self.bit_rate is not None:
@@ -583,7 +587,8 @@ class StdIO(IO):
     def input(self, prompt: str) -> str:
         if self.uart is not None or self.bit_rate is not None:
             raise NotImplementedError("reading from uart not supported")
-        return input(prompt)
+        # can only read ascii printable chars from the console
+        return check_string(input(prompt), allowed_chars="ascii_printable")
 
 
 class TestIO(IO):
