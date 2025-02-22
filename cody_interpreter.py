@@ -12,11 +12,41 @@ class IO(ABC):
         self.uart: Optional[int] = None
         self.bit_rate: Optional[int] = None
 
+    def print(self, value: str):
+        assert isinstance(value, str)
+        for c in value:
+            n = ord(c)
+            assert 0 <= n < 256
+            if n == 10:
+                self.println()
+            elif n == 222:
+                self.clear_screen()
+            elif n == 223:
+                self.reverse_field()
+            elif n >= 240:
+                self.set_foreground_color(n - 240)
+            elif n >= 224:
+                self.set_background_color(n - 224)
+            else:
+                self.print_char(c)
+
     @abstractmethod
-    def print(self, value): ...
+    def print_char(self, c: str): ...
 
     @abstractmethod
     def println(self): ...
+
+    def clear_screen(self):
+        raise NotImplementedError("clear_screen not implemented yet")
+
+    def reverse_field(self):
+        raise NotImplementedError("reverse_field not implemented yet")
+
+    def set_foreground_color(self, c: int):
+        raise NotImplementedError("set_foreground_color not implemented yet")
+
+    def set_background_color(self, c: int):
+        raise NotImplementedError("set_background_color not implemented yet")
 
     def print_at(self, row: int, col: int):
         raise NotImplementedError("AT not implemented yet")
@@ -573,11 +603,10 @@ class StdIO(IO):
     def __init__(self):
         super().__init__()
 
-    def print(self, value: str):
+    def print_char(self, c: str):
         if self.uart is not None or self.bit_rate is not None:
             raise NotImplementedError("printing to uart not supported")
-        # can only print ascii printable chars to the console
-        print(check_string(value, allowed_chars="ascii_printable"), end="")
+        print(c, end="")
 
     def println(self):
         if self.uart is not None or self.bit_rate is not None:
@@ -625,14 +654,17 @@ class TestIO(IO):
         else:
             return self.uart_inputs.get(self.uart, [])
 
-    def print(self, value: str):
+    def _check_new_line(self):
         if self.new_line[self.uart]:
             self._olog().append("")
             self.new_line[self.uart] = False
-        self._olog()[-1] += value
+
+    def print_char(self, c: str):
+        self._check_new_line()
+        self._olog()[-1] += c
 
     def println(self):
-        self.print("")
+        self._check_new_line()
         self.new_line[self.uart] = True
 
     def input(self, prompt: str) -> str:
