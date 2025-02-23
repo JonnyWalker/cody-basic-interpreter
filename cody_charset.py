@@ -260,33 +260,36 @@ CHARSET_TEXT = r"""
 
 
 def parse(s):
-    result = []
-    for line in s.splitlines():
-        if line.startswith(".BYTE "):
-            char_data = []
-            for b in line[len(".BYTE ") :].split(","):
-                b = b.strip()
-                assert b.startswith("$")
-                n = int(b[1:], base=16)
-                assert 0 <= n < 256
-                char_data.append(n)
-            assert len(char_data) == 8
-            result.append(bytes(char_data))
-    return tuple(result)
+    result = bytearray()
+    lines = [
+        l[len(".BYTE ") :]
+        for l in map(str.strip, s.splitlines())
+        if l.startswith(".BYTE ")
+    ]
+    assert len(lines) == CHAR_AMOUNT
+    for line in lines:
+        split = [b.strip() for b in line.split(",")]
+        assert len(split) == CHAR_HEIGHT
+        for b in split:
+            assert b.startswith("$")
+            n = int(b[1:], base=16)
+            result.append(n)
+    return bytes(result)
 
 
-CHARSET: tuple[bytes, ...] = parse(CHARSET_TEXT)
+CHAR_AMOUNT: int = 256
 CHAR_WIDTH: int = 4
 CHAR_HEIGHT: int = 8
+CHARSET: bytes = parse(CHARSET_TEXT)
+assert len(CHARSET) == CHAR_AMOUNT * CHAR_HEIGHT
 
 
 def debug_print_char(i):
     if isinstance(i, str):
         i = ord(i)
-    assert isinstance(i, int) and 0 <= i < len(CHARSET)
-    data = CHARSET[i]
+    assert isinstance(i, int) and 0 <= i < CHAR_AMOUNT
     for y in range(CHAR_HEIGHT):
-        line = data[y]
+        line = CHARSET[8 * i + y]
         # line is a single byte, but CHAR_WIDTH is 4, so two bits per pixel
         for x in range(CHAR_WIDTH):
             pixel = (line >> (2 * (CHAR_WIDTH - x - 1))) & 0b11

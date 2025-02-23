@@ -42,13 +42,13 @@ class IO(ABC):
     def reverse_field(self):
         raise NotImplementedError("reverse_field not implemented yet")
 
-    def set_foreground_color(self, c: int):
-        raise NotImplementedError("set_foreground_color not implemented yet")
-
     def set_background_color(self, c: int):
         raise NotImplementedError("set_background_color not implemented yet")
 
-    def print_at(self, row: int, col: int):
+    def set_foreground_color(self, c: int):
+        raise NotImplementedError("set_foreground_color not implemented yet")
+
+    def print_at(self, col: int, row: int):
         raise NotImplementedError("AT not implemented yet")
 
     def print_tab(self, col: int):
@@ -86,7 +86,7 @@ class IO(ABC):
     @abstractmethod
     def input(self, prompt: str) -> str: ...
 
-    def prompt_char(self):
+    def prompt_char(self) -> str:
         return "?"
 
     def peek(self, address: int) -> int:
@@ -370,10 +370,10 @@ class Interpreter:
             address = to_unsigned(self.eval(args[0]))
             return to_unsigned(self.io.peek(address), bits=8)
         elif name == "AT" and len(args) == 2:
-            row = self.eval(args[0])
-            col = self.eval(args[1])
-            assert isinstance(row, int) and isinstance(col, int)
-            self.io.print_at(row, col)
+            col = self.eval(args[0])
+            row = self.eval(args[1])
+            assert isinstance(col, int) and isinstance(row, int)
+            self.io.print_at(col, row)
             return None
         elif name == "TAB" and len(args) == 1:
             row = self.eval(args[0])
