@@ -55,10 +55,13 @@ class CodyComputer:
         self.memset_from(0xD800, [self.cursor_attr] * 1000)
 
     def memget(self, address: int, width: int = 1) -> int:
-        result = 0
-        for i in range(width):
-            result |= self.__memory[address + i] << (8 * i)
-        return result
+        if width == 1:
+            return self.__memory[address]
+        else:
+            result = 0
+            for i in range(width):
+                result |= self.__memory[address + i] << (8 * i)
+            return result
 
     def memget_multi(self, address: int, length: int) -> bytearray:
         return self.__memory[address : address + length]
@@ -66,9 +69,12 @@ class CodyComputer:
     def memset(self, address: int, value: int, width: int = 1):
         if address + width > 0xE000:
             raise ValueError("cannot write into ROM")
-        for i in range(width):
-            self.__memory[address + i] = value & 0xFF
-            value >>= 8
+        if width == 1:
+            self.__memory[address] = value
+        else:
+            for i in range(width):
+                self.__memory[address + i] = value & 0xFF
+                value >>= 8
 
     def memset_from(self, address: int, source: Iterable[int]):
         try:

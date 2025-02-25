@@ -1,12 +1,13 @@
 import pygame
 import threading
 import traceback
+import time
 from typing import Optional
 from cody_computer import CodyComputer, CodyIO
 from cody_parser import CodyBasicParser
 from cody_interpreter import Interpreter
 
-COLORS = [
+COLOR_NAMES = [
     "black",
     "white",
     "red",
@@ -17,13 +18,14 @@ COLORS = [
     "yellow",
     "orange",
     "brown",
-    "lightred",
+    "lightsalmon",  # "lightred",
     "darkgray",
     "gray",
     "lightgreen",
     "lightblue",
     "lightgray",
 ]
+COLORS = [pygame.colordict.THECOLORS[n] for n in COLOR_NAMES]
 
 BORDER_TOP = 8
 BORDER_LEFT = 4
@@ -206,28 +208,33 @@ class CodyRender:
         self.screen: Optional[pygame.Surface] = None
 
     def render(self):
-        color_memory = 0xA000 + 0x400 * self.cmp.vid_color_memory
-        character_memory = 0xA000 + 0x800 * self.cmp.vid_character_memory
-        screen_memory = 0xA000 + 0x400 * self.cmp.vid_screen_memory
+        color_memory_start = 0xA000 + 0x400 * self.cmp.vid_color_memory
+        color_memory = self.cmp.memget_multi(color_memory_start, 1000)
+        character_memory_start = 0xA000 + 0x800 * self.cmp.vid_character_memory
+        character_memory = self.cmp.memget_multi(character_memory_start, 2048)
+        screen_memory_start = 0xA000 + 0x400 * self.cmp.vid_screen_memory
+        screen_memory = self.cmp.memget_multi(screen_memory_start, 1000)
+        color_bg = self.cmp.cursor_attr_bg
+        color_fg = self.cmp.cursor_attr_fg
 
         border_color = COLORS[self.cmp.vid_border_color]
         self.screen.fill(border_color)
 
-        for i in range(1000):
-            x, y = i % 40, i // 40
-            char_index = self.cmp.memget(screen_memory + i)
+        for i, (char, local_color) in enumerate(zip(screen_memory, color_memory)):
+            x = i % 40
+            y = i // 40
             for yy in range(8):
-                char_row_data = self.cmp.memget(character_memory + 8 * char_index + yy)
+                char_row_data = character_memory[8 * char + yy]
                 for xx in range(4):
-                    char_data = (char_row_data >> (2 * (3 - xx))) & 0b11
-                    if char_data == 0:
-                        color_index = self.cmp.memget(color_memory + i) & 0xF
-                    elif char_data == 1:
-                        color_index = (self.cmp.memget(color_memory + i) >> 4) & 0xF
-                    elif char_data == 2:
-                        color_index = self.cmp.cursor_attr_bg
-                    elif char_data == 3:
-                        color_index = self.cmp.cursor_attr_bg
+                    char_pixel_data = (char_row_data >> (2 * (3 - xx))) & 0b11
+                    if char_pixel_data == 0:
+                        color_index = local_color & 0xF
+                    elif char_pixel_data == 1:
+                        color_index = local_color >> 4
+                    elif char_pixel_data == 2:
+                        color_index = color_bg
+                    elif char_pixel_data == 3:
+                        color_index = color_fg
 
                     color = COLORS[color_index]
                     self.screen.set_at(
