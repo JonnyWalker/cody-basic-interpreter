@@ -98,6 +98,9 @@ class IO(ABC):
     def sys(self, address: int):
         raise NotImplementedError("SYS not implemented yet")
 
+    def get_time(self) -> int | float | str:
+        return time.monotonic() * 60
+
 
 class Interpreter:
     def __init__(self, io: Optional[IO] = None):
@@ -260,7 +263,7 @@ class Interpreter:
 
     def eval_builtin_var(self, name):
         if name == "TI":
-            return twos_complement(time.monotonic() * 60, convert=True)
+            return twos_complement(self.io.get_time(), convert=True)
         else:
             raise NotImplementedError(f"built-in variable {name} not implemented")
 

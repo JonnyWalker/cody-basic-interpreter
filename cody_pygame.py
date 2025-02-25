@@ -331,6 +331,8 @@ class CodyRender:
                 break  # insta-close
 
             self.check_keyboard()
+            self.io.blink()
+            self.cmp.jiffies = (self.cmp.jiffies + 1) & 0xFFFF
             self.render()
 
             # flip() the display to put your work on screen

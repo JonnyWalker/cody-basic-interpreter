@@ -126,6 +126,7 @@ class CodyComputer:
     sys_a = memprop(0x0000)
     sys_x = memprop(0x0001)
     sys_y = memprop(0x0002)
+    jiffies = memprop(0x0006, width=2)
     isrptr = memprop(0x0008, width=2)
     prompt = memprop(0x000E)
     keyboard_row_0 = memprop(0x0010)
@@ -195,30 +196,31 @@ class CodyIO(IO):
         self.input_buffer = None
         self.input_queue = queue.Queue(1)
 
-    def print_char(self, c: str):
+    def print_char(self, c: str, increment_cursor: bool = True):
         if self.uart is not None or self.bit_rate is not None:
             raise NotImplementedError("printing to uart not supported")
         offset = self.cody.cursor_row * 40 + self.cody.cursor_col
         self.cody.memset(0xC400 + offset, ord(c))
         self.cody.memset(0xD800 + offset, self.cody.cursor_attr)
-        self.cody.cursor_col += 1
-        if self.cody.cursor_col >= 40:
-            self.cody.cursor_col = 0
-            self.cody.cursor_row += 1
-        if self.cody.cursor_row >= 25:
-            self.cody.cursor_col = 0
-            self.cody.cursor_row = 24
-            # scroll up one row
-            for y in range(24):
-                self.cody.memset_from(
-                    0xC400 + y * 40, self.memget_multi(0xC400 + (y + 1) * 40, 40)
-                )
-                self.cody.memset_from(
-                    0xD800 + y * 40, self.memget_multi(0xD800 + (y + 1) * 40, 40)
-                )
-            # fill new row with spaces
-            self.cody.memset_from(0xC400 + 24 * 40, [0x20] * 40)
-            self.cody.memset_from(0xD800 + 24 * 40, [self.cody.cursor_attr] * 40)
+        if increment_cursor:
+            self.cody.cursor_col += 1
+            if self.cody.cursor_col >= 40:
+                self.cody.cursor_col = 0
+                self.cody.cursor_row += 1
+            if self.cody.cursor_row >= 25:
+                self.cody.cursor_col = 0
+                self.cody.cursor_row = 24
+                # scroll up one row
+                for y in range(24):
+                    self.cody.memset_from(
+                        0xC400 + y * 40, self.memget_multi(0xC400 + (y + 1) * 40, 40)
+                    )
+                    self.cody.memset_from(
+                        0xD800 + y * 40, self.memget_multi(0xD800 + (y + 1) * 40, 40)
+                    )
+                # fill new row with spaces
+                self.cody.memset_from(0xC400 + 24 * 40, [0x20] * 40)
+                self.cody.memset_from(0xD800 + 24 * 40, [self.cody.cursor_attr] * 40)
 
     def println(self, value: str = ""):
         if self.uart is not None or self.bit_rate is not None:
@@ -261,15 +263,18 @@ class CodyIO(IO):
         if buf is not None:
             # buffer not None, other thread is waiting for the queue
             assert self.input_queue.qsize() == 0
+
+            # reset colors in current position
+
             if c == "\n":
                 self.println()
                 self.input_buffer = None
                 self.input_queue.put_nowait(buf)
             elif c == "\b":  # backspace
                 if buf:
+                    self.print_char(" ", increment_cursor=False)  # delete cursor
                     self.cody.cursor_col -= 1
-                    self.print_char(" ")
-                    self.cody.cursor_col -= 1
+                    self.print_char(" ", increment_cursor=False)  # clear previous char
                     self.input_buffer = buf[:-1]
             else:
                 self.print_char(c)
@@ -277,6 +282,22 @@ class CodyIO(IO):
 
         with self.input_lock:
             pass
+
+    def blink(self, force_off: bool = False):
+        """
+        called from pygame code to blink the cursor
+        """
+        with self.input_lock:
+            buf = self.input_buffer
+
+        if buf is not None:
+            # input is happening, we may blink
+            swap = (self.cody.jiffies & 0x40) == 0
+            if swap:
+                self.reverse_field()
+            self.print_char(" ", increment_cursor=False)
+            if swap:
+                self.reverse_field()
 
     def input(self, prompt: str) -> str:
         if self.uart is not None or self.bit_rate is not None:
@@ -295,3 +316,6 @@ class CodyIO(IO):
 
     def poke(self, address: int, value: int):
         self.cody.memset(address, value)
+
+    def get_time(self) -> int | float | str:
+        return self.cody.jiffies
