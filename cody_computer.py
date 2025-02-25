@@ -1,6 +1,8 @@
 from cody_interpreter import IO
 from cody_charset import CHARSET
 from typing import Iterable
+import queue
+import threading
 
 
 class CodyComputer:
@@ -134,6 +136,11 @@ class CodyComputer:
     keyboard_row_5 = memprop(0x0015)
     joystick_1 = memprop(0x0016)
     joystick_2 = memprop(0x0017)
+    key_debounce = memprop(0x0018)
+    key_last = memprop(0x0019)
+    key_lock = memprop(0x001A)
+    key_mods = memprop(0x001B)
+    key_code = memprop(0x001C)
     cursor_attr = memprop(0x0037)
     cursor_attr_bg = memprop(0x0037, mask=0x0F)
     cursor_attr_fg = memprop(0x0037, mask=0xF0)
@@ -184,6 +191,9 @@ class CodyIO(IO):
     def __init__(self, cody: CodyComputer):
         super().__init__()
         self.cody = cody
+        self.input_lock = threading.RLock()
+        self.input_buffer = None
+        self.input_queue = queue.Queue(1)
 
     def print_char(self, c: str):
         if self.uart is not None or self.bit_rate is not None:
@@ -210,9 +220,10 @@ class CodyIO(IO):
             self.cody.memset_from(0xC400 + 24 * 40, [0x20] * 40)
             self.cody.memset_from(0xD800 + 24 * 40, [self.cody.cursor_attr] * 40)
 
-    def println(self):
+    def println(self, value: str = ""):
         if self.uart is not None or self.bit_rate is not None:
             raise NotImplementedError("printing to uart not supported")
+        self.print(value)
         # use auto linewrap/scrolling from print_char
         for _ in range(self.cody.cursor_col, 40):
             self.print_char(" ")
@@ -240,10 +251,41 @@ class CodyIO(IO):
     def print_tab(self, col: int):
         raise NotImplementedError  # TODO
 
+    def on_key_typed(self, c: str):
+        """
+        called from pygame code to add text to buffer
+        """
+        with self.input_lock:
+            buf = self.input_buffer
+
+        if buf is not None:
+            # buffer not None, other thread is waiting for the queue
+            assert self.input_queue.qsize() == 0
+            if c == "\n":
+                self.println()
+                self.input_buffer = None
+                self.input_queue.put_nowait(buf)
+            elif c == "\b":  # backspace
+                if buf:
+                    self.cody.cursor_col -= 1
+                    self.print_char(" ")
+                    self.cody.cursor_col -= 1
+                    self.input_buffer = buf[:-1]
+            else:
+                self.print_char(c)
+                self.input_buffer = buf + c
+
+        with self.input_lock:
+            pass
+
     def input(self, prompt: str) -> str:
         if self.uart is not None or self.bit_rate is not None:
             raise NotImplementedError("reading from uart not supported")
-        raise NotImplementedError  # TODO
+        self.print(prompt)
+        with self.input_lock:
+            assert self.input_buffer is None
+            self.input_buffer = ""
+        return self.input_queue.get()
 
     def prompt_char(self) -> str:
         return chr(self.cody.prompt)

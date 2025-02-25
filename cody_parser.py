@@ -364,12 +364,11 @@ class CodyBasicParser:
         command = command.strip()
 
         # (1) split line number if present
+        i = 0
         if line_number:
             for i, c in enumerate(command):
                 if not c.isdigit():
                     break
-        else:
-            i = 0
         if i > 0:
             line_number = int(command[:i])
             assert 0 <= line_number < 65535

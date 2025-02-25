@@ -34,7 +34,7 @@ class IO(ABC):
     def print_char(self, c: str): ...
 
     @abstractmethod
-    def println(self): ...
+    def println(self, value: str = ""): ...
 
     def clear_screen(self):
         raise NotImplementedError("clear_screen not implemented yet")
@@ -608,9 +608,10 @@ class StdIO(IO):
             raise NotImplementedError("printing to uart not supported")
         print(c, end="")
 
-    def println(self):
+    def println(self, value: str = ""):
         if self.uart is not None or self.bit_rate is not None:
             raise NotImplementedError("printing to uart not supported")
+        self.print(value)
         print()
 
     def input(self, prompt: str) -> str:
@@ -663,7 +664,8 @@ class TestIO(IO):
         self._check_new_line()
         self._olog()[-1] += c
 
-    def println(self):
+    def println(self, value: str = ""):
+        self.print(value)
         self._check_new_line()
         self.new_line[self.uart] = True
 
