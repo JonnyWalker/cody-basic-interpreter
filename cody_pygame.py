@@ -20,13 +20,17 @@ COLORS = [
     "lightgray",
 ]
 
+BORDER_TOP = 8
+BORDER_LEFT = 4
+
 
 def render(s: pygame.Surface, cmp: CodyComputer):
     color_memory = 0xA000 + 0x400 * cmp.vid_color_memory
     character_memory = 0xA000 + 0x800 * cmp.vid_character_memory
     screen_memory = 0xA000 + 0x400 * cmp.vid_screen_memory
 
-    # TODO: border
+    border_color = COLORS[cmp.vid_border_color]
+    s.fill(border_color)
 
     for i in range(1000):
         x, y = i % 40, i // 40
@@ -43,8 +47,9 @@ def render(s: pygame.Surface, cmp: CodyComputer):
                     color_index = cmp.cursor_attr_bg
                 elif char_data == 3:
                     color_index = cmp.cursor_attr_bg
+
                 color = COLORS[color_index]
-                s.set_at((x * 4 + xx, y * 8 + yy), color)
+                s.set_at((BORDER_LEFT + x * 4 + xx, BORDER_TOP + y * 8 + yy), color)
 
 
 def start(cmp: CodyComputer):
@@ -53,7 +58,7 @@ def start(cmp: CodyComputer):
 
     # 40 cols, 4 horizontal pixels
     # 25 rows, 8 vertical pixels
-    w, h = 160, 200
+    w, h = 160 + 2 * BORDER_LEFT, 200 + 2 * BORDER_TOP
     # SCALED makes the window not appear tiny on big screens
     flags = pygame.SCALED | pygame.RESIZABLE
     screen = pygame.display.set_mode((w, h), flags)
