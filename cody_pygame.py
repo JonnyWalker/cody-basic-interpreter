@@ -1,7 +1,53 @@
 import pygame
+from cody_computer import CodyComputer, CodyIO
+
+COLORS = [
+    "black",
+    "white",
+    "red",
+    "cyan",
+    "purple",
+    "green",
+    "blue",
+    "yellow",
+    "orange",
+    "brown",
+    "lightred",
+    "darkgray",
+    "gray",
+    "lightgreen",
+    "lightblue",
+    "lightgray",
+]
 
 
-def main():
+def render(s: pygame.Surface, cmp: CodyComputer):
+    color_memory = 0xA000 + 0x400 * cmp.vid_color_memory
+    character_memory = 0xA000 + 0x800 * cmp.vid_character_memory
+    screen_memory = 0xA000 + 0x400 * cmp.vid_screen_memory
+
+    # TODO: border
+
+    for i in range(1000):
+        x, y = i % 40, i // 40
+        char_index = cmp.memget(screen_memory + i)
+        for yy in range(8):
+            char_row_data = cmp.memget(character_memory + 8 * char_index + yy)
+            for xx in range(4):
+                char_data = (char_row_data >> (2 * (3 - xx))) & 0b11
+                if char_data == 0:
+                    color_index = cmp.memget(color_memory + i) & 0xF
+                elif char_data == 1:
+                    color_index = (cmp.memget(color_memory + i) >> 4) & 0xF
+                elif char_data == 2:
+                    color_index = cmp.cursor_attr_bg
+                elif char_data == 3:
+                    color_index = cmp.cursor_attr_bg
+                color = COLORS[color_index]
+                s.set_at((x * 4 + xx, y * 8 + yy), color)
+
+
+def start(cmp: CodyComputer):
     # pygame setup
     pygame.init()
 
@@ -26,15 +72,20 @@ def main():
         if not running:
             break  # insta-close
 
-        # TODO: render based on contents of cody memory
-        screen.fill("yellow")
-        pygame.draw.circle(screen, "red", (w / 2, h / 2), 50, 1)
+        render(screen, cmp)
 
         # flip() the display to put your work on screen
         pygame.display.flip()
         clock.tick(60)  # limits FPS to 60
 
     pygame.quit()
+
+
+def main():
+    cmp = CodyComputer()
+    io = CodyIO(cmp)
+    io.print("Hello World")
+    start(cmp)
 
 
 if __name__ == "__main__":
