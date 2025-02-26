@@ -198,6 +198,7 @@ class CodyIO(IO):
     def __init__(self, cody: CodyComputer):
         super().__init__()
         self.cody = cody
+        self.cancel = False
         self.input_lock = threading.RLock()
         self.input_buffer = None
         self.input_queue = queue.Queue(1)
@@ -219,10 +220,12 @@ class CodyIO(IO):
                 # scroll up one row
                 for y in range(24):
                     self.cody.memset_from(
-                        0xC400 + y * 40, self.memget_multi(0xC400 + (y + 1) * 40, 40)
+                        0xC400 + y * 40,
+                        self.cody.memget_multi(0xC400 + (y + 1) * 40, 40),
                     )
                     self.cody.memset_from(
-                        0xD800 + y * 40, self.memget_multi(0xD800 + (y + 1) * 40, 40)
+                        0xD800 + y * 40,
+                        self.cody.memget_multi(0xD800 + (y + 1) * 40, 40),
                     )
                 # fill new row with spaces
                 self.cody.memset_from(0xC400 + 24 * 40, [0x20] * 40)
@@ -265,13 +268,14 @@ class CodyIO(IO):
         """
         with self.input_lock:
             buf = self.input_buffer
+            if buf is None and c == "\x18":  # cancel
+                self.input_buffer = None
+                self.cancel = True
+                return
 
         if buf is not None:
             # buffer not None, other thread is waiting for the queue
             assert self.input_queue.qsize() == 0
-
-            # reset colors in current position
-
             if c == "\n":
                 self.println()
                 self.input_buffer = None

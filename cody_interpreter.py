@@ -389,6 +389,11 @@ class Interpreter:
             )
 
     def _run_command(self, command: Command) -> Optional[int]:
+        if getattr(self.io, "cancel", None):
+            # TODO: hack
+            self.io.cancel = False
+            raise KeyboardInterrupt
+
         if self.repl and command.line_number is not None:
             # repl mode but the command has a line number:
             # edit saved program

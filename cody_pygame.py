@@ -305,9 +305,7 @@ class CodyRender:
                     if key_typed:
                         if self.cmp.key_lock:
                             key_typed = key_typed.lower()
-                        if key_typed != "\x18":  # cancel
-                            # TODO: check for cancel and stop interrupt currently running BASIC program
-                            self.io.on_key_typed(key_typed)
+                        self.io.on_key_typed(key_typed)
         else:
             self.cmp.key_debounce = self.cmp.key_code
 
@@ -358,6 +356,8 @@ def start_basic(io: CodyIO):
         try:
             cmd = parser.parse_command(source)
             interpreter.run_command(cmd)
+        except KeyboardInterrupt:
+            io.println("INTERRUPT")
         except Exception:
             traceback.print_exc()
             io.println("ERROR")
