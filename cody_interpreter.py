@@ -323,7 +323,7 @@ class Interpreter:
                 and isinstance(start, int)
                 and isinstance(length, int)
                 and 0 <= start < len(s)
-                and 0 <= length < len(s) - start
+                and 0 <= length <= len(s) - start
             )
             return s[start : start + length]
         elif name == "CHR$":
@@ -425,7 +425,7 @@ class Interpreter:
             if mode == 0:  # text mode
                 lines = self.io.load_text(uart)
                 parser = CodyBasicParser()
-                parsed = self.parser.parse_lines(lines)
+                parsed = parser.parse_lines(lines)
                 self.load(parsed)
             else:
                 raise NotImplementedError("LOAD in binary mode not supported")
@@ -498,7 +498,7 @@ class Interpreter:
             self.set_value(loop_var, loop_var_index, initial)
 
             limit = self.eval(command.limit)
-            assert initial < limit
+            assert initial <= limit
             self.loop_stack.append(
                 (loop_var, loop_var_index, limit, command.line_number)
             )
@@ -515,6 +515,7 @@ class Interpreter:
             assert self.running
             target = self.eval(command.expression)
             assert isinstance(target, int)
+            assert command.line_number is not None
             self.call_stack.append(command.line_number)
             next_index = self.find_line_number(target)
         elif command.command_type == CommandTypes.RETURN:
@@ -619,7 +620,8 @@ class StdIO(IO):
     def println(self, value: str = ""):
         if self.uart is not None or self.bit_rate is not None:
             raise NotImplementedError("printing to uart not supported")
-        self.print(value)
+        if value:
+            self.print(value)
         print()
 
     def input(self, prompt: str) -> str:
@@ -673,7 +675,8 @@ class TestIO(IO):
         self._olog()[-1] += c
 
     def println(self, value: str = ""):
-        self.print(value)
+        if value:
+            self.print(value)
         self._check_new_line()
         self.new_line[self.uart] = True
 

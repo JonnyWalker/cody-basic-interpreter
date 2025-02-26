@@ -459,6 +459,7 @@ class CodyBasicParser:
             self.expect("THEN")
             assert not self.is_eol()
             c.command = self.parse_command(self.rest(), line_number=False)
+            c.command.line_number = c.line_number  # make sure that jumps work
         elif c.command_type == CommandTypes.FOR:
             c.loop_variable = self.parse(other, ignore_tail=True)
             assert c.loop_variable.ast_type in (
