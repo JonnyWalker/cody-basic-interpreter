@@ -248,10 +248,16 @@ class CodyRender:
             result = 0
             for i, k in enumerate(keys):
                 if isinstance(k, int):
-                    result |= (1 if pressed[k] else 0) << i
+                    is_pressed = pressed[k]
                 else:
+                    is_pressed = False
                     for k_ in k:
-                        result |= (1 if pressed[k_] else 0) << i
+                        if pressed[k_]:
+                            is_pressed = True
+                            break
+                    else:
+                        is_pressed = False
+                result |= (0 if is_pressed else 1) << i
             return result
 
         # KEYSCAN
@@ -280,7 +286,7 @@ class CodyRender:
                 scancode += 1
                 pressed = row & 0b1
                 row >>= 1
-                if pressed:
+                if not pressed:
                     if scancode == 0x0F:  # meta
                         self.cmp.key_mods |= 0x20
                     elif scancode == 0x0B:  # cody
@@ -301,8 +307,11 @@ class CodyRender:
                     pass
                 else:
                     key_typed = SCANCODE_TO_CHAR[self.cmp.key_code]
-                    # this condition does not exist in the original, but it increases safety
-                    if key_typed:
+
+                    if key_typed == "\x18":
+                        self.io.do_cancel()
+                    elif key_typed:
+                        # this condition does not exist in the original, but it increases safety
                         if self.cmp.key_lock:
                             key_typed = key_typed.lower()
                         self.io.on_key_typed(key_typed)
@@ -369,6 +378,26 @@ def start_basic(io: CodyIO):
 def main():
     cmp = CodyComputer()
     io = CodyIO(cmp)
+
+    # load lander code
+
+    import urllib.request
+
+    with urllib.request.urlopen(
+        "https://raw.githubusercontent.com/fjmilens3/cody-computer/refs/heads/master/CodyBASIC/codylander.bas"
+    ) as f:
+        source: str = f.read().decode("utf-8")
+    for line in source.splitlines():
+        io.input_queues[1].put_nowait(line)
+
+    with urllib.request.urlopen(
+        "https://raw.githubusercontent.com/fjmilens3/cody-computer/refs/heads/master/CodyBASIC/codytrek.bas"
+    ) as f:
+        source: str = f.read().decode("utf-8")
+    # patch bug
+    source = source.replace("4350 iF", "4350 IF", 1)
+    for line in source.splitlines():
+        io.input_queues[2].put_nowait(line)
 
     t = threading.Thread(target=start_basic, args=[io])
     t.daemon = True

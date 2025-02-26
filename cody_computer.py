@@ -200,49 +200,75 @@ class CodyIO(IO):
         self.cody = cody
         self.cancel = False
         self.input_lock = threading.RLock()
-        self.input_buffer = None
-        self.input_queue = queue.Queue(1)
+        self.waiting_for_input = False
+        self.input_buffer = ""
+        self.input_queues = {None: queue.Queue(1), 1: queue.Queue(), 2: queue.Queue()}
+        self.output_buffer = ""
+        self.output_queues = {1: queue.Queue(), 2: queue.Queue()}
 
     def print_char(self, c: str, increment_cursor: bool = True):
-        if self.uart is not None or self.bit_rate is not None:
-            raise NotImplementedError("printing to uart not supported")
-        offset = self.cody.cursor_row * 40 + self.cody.cursor_col
-        self.cody.memset(0xC400 + offset, ord(c))
-        self.cody.memset(0xD800 + offset, self.cody.cursor_attr)
-        if increment_cursor:
-            self.cody.cursor_col += 1
-            if self.cody.cursor_col >= 40:
-                self.cody.cursor_col = 0
-                self.cody.cursor_row += 1
-            if self.cody.cursor_row >= 25:
-                self.cody.cursor_col = 0
-                self.cody.cursor_row = 24
-                # scroll up one row
-                for y in range(24):
+        assert isinstance(c, str) and len(c) == 1
+
+        n = ord(c)
+        if not (1 <= n < 222 and n not in (8, 10, 13, 24)):
+            raise ValueError(f"can only print printable characters, not {n}")
+
+        with self.input_lock:
+            uart = self.uart
+            buf = self.output_buffer
+
+        if uart is None:
+            offset = self.cody.cursor_row * 40 + self.cody.cursor_col
+            self.cody.memset(0xC400 + offset, n)
+            self.cody.memset(0xD800 + offset, self.cody.cursor_attr)
+            if increment_cursor:
+                self.cody.cursor_col += 1
+                if self.cody.cursor_col >= 40:
+                    self.cody.cursor_col = 0
+                    self.cody.cursor_row += 1
+                if self.cody.cursor_row >= 25:
+                    self.cody.cursor_col = 0
+                    self.cody.cursor_row = 24
+                    # scroll up one row
+                    for y in range(24):
+                        self.cody.memset_from(
+                            0xC400 + y * 40,
+                            self.cody.memget_multi(0xC400 + (y + 1) * 40, 40),
+                        )
+                        self.cody.memset_from(
+                            0xD800 + y * 40,
+                            self.cody.memget_multi(0xD800 + (y + 1) * 40, 40),
+                        )
+                    # fill new row with spaces
+                    self.cody.memset_from(0xC400 + 24 * 40, [0x20] * 40)
                     self.cody.memset_from(
-                        0xC400 + y * 40,
-                        self.cody.memget_multi(0xC400 + (y + 1) * 40, 40),
+                        0xD800 + 24 * 40, [self.cody.cursor_attr] * 40
                     )
-                    self.cody.memset_from(
-                        0xD800 + y * 40,
-                        self.cody.memget_multi(0xD800 + (y + 1) * 40, 40),
-                    )
-                # fill new row with spaces
-                self.cody.memset_from(0xC400 + 24 * 40, [0x20] * 40)
-                self.cody.memset_from(0xD800 + 24 * 40, [self.cody.cursor_attr] * 40)
+        else:
+            self.output_buffer = buf + c
 
     def println(self, value: str = ""):
-        if self.uart is not None or self.bit_rate is not None:
-            raise NotImplementedError("printing to uart not supported")
-        self.print(value)
-        # use auto linewrap/scrolling from print_char
-        for _ in range(self.cody.cursor_col, 40):
-            self.print_char(" ")
+        if value:
+            self.print(value)
+
+        with self.input_lock:
+            uart = self.uart
+            buf = self.output_buffer
+
+        if uart is None:
+            # use auto linewrap/scrolling from print_char
+            for _ in range(self.cody.cursor_col, 40):
+                self.print_char(" ")
+        else:
+            self.output_buffer = ""
+            self.output_queues[uart].put_nowait(buf)
 
     def clear_screen(self):
+        assert self.uart is None and self.bit_rate is None
         self.cody.clear_screen()
 
     def reverse_field(self):
+        assert self.uart is None and self.bit_rate is None
         # switch foreground and background colors
         self.cody.cursor_attr_bg, self.cody.cursor_attr_fg = (
             self.cody.cursor_attr_fg,
@@ -250,36 +276,49 @@ class CodyIO(IO):
         )
 
     def set_background_color(self, c: int):
+        assert self.uart is None and self.bit_rate is None
         self.cody.cursor_attr_bg = c
 
     def set_foreground_color(self, c: int):
+        assert self.uart is None and self.bit_rate is None
         self.cody.cursor_attr_fg = c
 
     def print_at(self, col: int, row: int):
+        assert self.uart is None and self.bit_rate is None
         self.cody.cursor_col = col
         self.cody.cursor_row = row
 
     def print_tab(self, col: int):
+        assert self.uart is None and self.bit_rate is None
         raise NotImplementedError  # TODO
+
+    def do_cancel(self):
+        """
+        called from pygame code when the cancel key was pressed
+        """
+        with self.input_lock:
+            self.input_buffer = ""  # reset buffers as well
+            self.output_buffer = ""
+            self.cancel = True
+            if self.waiting_for_input:
+                self.input_queues[self.uart].put_nowait(None)
 
     def on_key_typed(self, c: str):
         """
         called from pygame code to add text to buffer
         """
         with self.input_lock:
+            waiting = self.waiting_for_input
+            uart = self.uart
             buf = self.input_buffer
-            if buf is None and c == "\x18":  # cancel
-                self.input_buffer = None
-                self.cancel = True
-                return
 
-        if buf is not None:
-            # buffer not None, other thread is waiting for the queue
-            assert self.input_queue.qsize() == 0
+        if waiting and uart is None:
+            # other thread is waiting for the queue
+            assert self.input_queues[None].qsize() == 0
             if c == "\n":
                 self.println()
-                self.input_buffer = None
-                self.input_queue.put_nowait(buf)
+                self.input_buffer = ""
+                self.input_queues[None].put_nowait(buf)
             elif c == "\b":  # backspace
                 if buf:
                     self.print_char(" ", increment_cursor=False)  # delete cursor
@@ -290,18 +329,16 @@ class CodyIO(IO):
                 self.print_char(c)
                 self.input_buffer = buf + c
 
-        with self.input_lock:
-            pass
-
     def blink(self, force_off: bool = False):
         """
         called from pygame code to blink the cursor
         """
         with self.input_lock:
-            buf = self.input_buffer
+            waiting = self.waiting_for_input
+            uart = self.uart
 
-        if buf is not None:
-            # input is happening, we may blink
+        if waiting and uart is None:
+            # keyboard input is happening, we may blink
             swap = (self.cody.jiffies & 0x40) == 0
             if swap:
                 self.reverse_field()
@@ -310,13 +347,32 @@ class CodyIO(IO):
                 self.reverse_field()
 
     def input(self, prompt: str) -> str:
-        if self.uart is not None or self.bit_rate is not None:
-            raise NotImplementedError("reading from uart not supported")
         self.print(prompt)
         with self.input_lock:
-            assert self.input_buffer is None
+            self.waiting_for_input = True
             self.input_buffer = ""
-        return self.input_queue.get()
+            uart = self.uart
+        try:
+            while True:  # pop values from the current queue until we get a string
+                value = self.input_queues[uart].get()
+                if self.cancel:
+                    self.cancel = False
+                    raise KeyboardInterrupt
+                elif value is not None:
+                    return value
+        finally:
+            with self.input_lock:
+                self.waiting_for_input = False
+
+    def open_uart(self, uart: int, bit_rate: int):
+        with self.input_lock:
+            super().open_uart(uart, bit_rate)
+            self.output_buffer = ""
+
+    def close_uart(self):
+        with self.input_lock:
+            super().close_uart()
+            self.output_buffer = ""
 
     def prompt_char(self) -> str:
         return chr(self.cody.prompt)
