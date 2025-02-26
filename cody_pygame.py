@@ -350,17 +350,20 @@ class CodyRender:
 def start_basic(io: CodyIO):
     parser = CodyBasicParser()
     interpreter = Interpreter(io)
-    io.println("Cody BASIC")
+
+    io.println()
+    io.println("  *** CODY COMPUTER BASIC V1.0emu ***  ")
+
     while True:
         source = io.input("\nREADY.\n")
         try:
             cmd = parser.parse_command(source)
             interpreter.run_command(cmd)
         except KeyboardInterrupt:
-            io.println("INTERRUPT")
+            io.println("\nINTERRUPT")
         except Exception:
             traceback.print_exc()
-            io.println("ERROR")
+            io.println("\nERROR\n")
 
 
 def main():
