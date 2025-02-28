@@ -1,5 +1,9 @@
 # for repl: python cody_basic.py
+# for graphical: python cody_basic.py [-g|--graphical]
 # for run a file: python cody_basic.py examples/simple_array.bas
+
+import argparse
+import os
 import sys
 import code
 import traceback
@@ -48,10 +52,21 @@ def run_file(filename):
 
 
 def main():
-    if len(sys.argv) < 2:
-        repl()
+    parser = argparse.ArgumentParser(
+        prog=f"{os.path.basename(__file__)}", description="Cody BASIC"
+    )
+    parser.add_argument("file", nargs="?", default=None)
+    parser.add_argument("-g", "--graphical", action="store_true")
+    args = parser.parse_args()
+
+    if args.graphical:
+        import cody_pygame
+
+        cody_pygame.start(args.file)
+    elif args.file:
+        run_file(args.file)
     else:
-        run_file(sys.argv[1])
+        repl()
 
 
 if __name__ == "__main__":

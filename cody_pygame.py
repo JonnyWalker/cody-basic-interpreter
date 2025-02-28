@@ -1,4 +1,7 @@
 import pygame
+import argparse
+import os
+import sys
 import threading
 import traceback
 import time
@@ -375,27 +378,37 @@ def start_basic(io: CodyIO):
             io.println("\nERROR\n")
 
 
-def main():
+def start(file=None):
     cmp = CodyComputer()
     io = CodyIO(cmp)
 
-    # load lander code
+    def load_into_queue(f, uart, encoding="utf-8"):
+        source = f.read()
+        if not isinstance(source, str):
+            source = source.decode(encoding)
+        for line in source.splitlines():
+            line = line.strip()
+            if line:
+                io.input_queues[uart].put_nowait(line)
+        io.input_queues[uart].put_nowait("")
 
-    import urllib.request
+    if file:
+        # load given file code
+        with open(file) as f:
+            load_into_queue(f, 1)
+    else:
+        # load lander and trek code
+        import urllib.request
 
-    with urllib.request.urlopen(
-        "https://raw.githubusercontent.com/fjmilens3/cody-computer/refs/heads/master/CodyBASIC/codylander.bas"
-    ) as f:
-        source: str = f.read().decode("utf-8")
-    for line in source.splitlines():
-        io.input_queues[1].put_nowait(line)
+        with urllib.request.urlopen(
+            "https://raw.githubusercontent.com/fjmilens3/cody-computer/refs/heads/master/CodyBASIC/codylander.bas"
+        ) as f:
+            load_into_queue(f, 1)
 
-    with urllib.request.urlopen(
-        "https://raw.githubusercontent.com/fjmilens3/cody-computer/refs/heads/master/CodyBASIC/codytrek.bas"
-    ) as f:
-        source: str = f.read().decode("utf-8")
-    for line in source.splitlines():
-        io.input_queues[2].put_nowait(line)
+        with urllib.request.urlopen(
+            "https://raw.githubusercontent.com/fjmilens3/cody-computer/refs/heads/master/CodyBASIC/codytrek.bas"
+        ) as f:
+            load_into_queue(f, 2)
 
     t = threading.Thread(target=start_basic, args=[io])
     t.daemon = True
@@ -403,6 +416,16 @@ def main():
 
     render = CodyRender(cmp, io)
     render.start()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog=f"{os.path.basename(__file__)}", description="Cody BASIC (Graphical)"
+    )
+    parser.add_argument("file", nargs="?", default=None)
+    args = parser.parse_args()
+
+    start(args.file)
 
 
 if __name__ == "__main__":
