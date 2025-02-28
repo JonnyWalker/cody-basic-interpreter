@@ -394,8 +394,6 @@ def main():
         "https://raw.githubusercontent.com/fjmilens3/cody-computer/refs/heads/master/CodyBASIC/codytrek.bas"
     ) as f:
         source: str = f.read().decode("utf-8")
-    # patch bug
-    source = source.replace("4350 iF", "4350 IF", 1)
     for line in source.splitlines():
         io.input_queues[2].put_nowait(line)
 
