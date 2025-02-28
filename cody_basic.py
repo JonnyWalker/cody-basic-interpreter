@@ -43,7 +43,7 @@ def run_file(filename):
     parser = CodyBasicParser()
     parsed = parser.parse_file(filename)
     interp = Interpreter()
-    interp.load(parsed_code)
+    interp.load(parsed)
     interp.run()
 
 
