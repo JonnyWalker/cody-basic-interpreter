@@ -213,6 +213,12 @@ class CodyRender:
     def render(self):
         self.cmp.vid_blnk = 1
 
+        border_color = COLORS[self.cmp.vid_border_color]
+        self.screen.fill(border_color)
+
+        if self.cmp.vid_screen_disable:
+            return
+
         color_memory_start = 0xA000 + 0x400 * self.cmp.vid_color_memory
         color_memory = self.cmp.memget_multi(color_memory_start, 1000)
         character_memory_start = 0xA000 + 0x800 * self.cmp.vid_character_memory
@@ -222,19 +228,47 @@ class CodyRender:
         color_bg = self.cmp.cursor_attr_bg
         color_fg = self.cmp.cursor_attr_fg
 
-        border_color = COLORS[self.cmp.vid_border_color]
-        self.screen.fill(border_color)
-
-        if self.cmp.vid_screen_disable:
-            return
+        x_scroll = self.cmp.vid_horizontal_scroll_enable
+        if x_scroll:
+            border_left = BORDER_LEFT + 2
+            x_offset = self.cmp.vid_horizontal_scroll & 0b11
+        else:
+            border_left = BORDER_LEFT
+            x_offset = 0
+        y_scroll = self.cmp.vid_vertical_scroll_enable
+        if y_scroll:
+            border_top = BORDER_TOP + 4
+            y_offset = self.cmp.vid_vertical_scroll & 0b111
+        else:
+            border_top = BORDER_TOP
+            y_offset = 0
 
         self.cmp.vid_blnk = 0
         for i, (char, local_color) in enumerate(zip(screen_memory, color_memory)):
             x = i % 40
             y = i // 40
-            for yy in range(8):
+
+            if y_scroll and y == 0:
+                min_yy = y_offset
+            else:
+                min_yy = 0
+            if y_scroll and y == 24:
+                max_yy = y_offset
+            else:
+                max_yy = 8
+
+            for yy in range(min_yy, max_yy):
+                if x_scroll and x == 0:
+                    min_xx = x_offset
+                else:
+                    min_xx = 0
+                if x_scroll and x == 39:
+                    max_xx = x_offset
+                else:
+                    max_xx = 4
+
                 char_row_data = character_memory[8 * char + yy]
-                for xx in range(4):
+                for xx in range(min_xx, max_xx):
                     char_pixel_data = (char_row_data >> (2 * (3 - xx))) & 0b11
                     if char_pixel_data == 0:
                         color_index = local_color & 0xF
@@ -247,8 +281,13 @@ class CodyRender:
 
                     color = COLORS[color_index]
                     self.screen.set_at(
-                        (BORDER_LEFT + x * 4 + xx, BORDER_TOP + y * 8 + yy), color
+                        (
+                            border_left + x * 4 + xx - x_offset,
+                            border_top + y * 8 + yy - y_offset,
+                        ),
+                        color,
                     )
+        self.cmp.vid_blnk = 1
 
     def check_keyboard(self):
         pressed = pygame.key.get_pressed()
