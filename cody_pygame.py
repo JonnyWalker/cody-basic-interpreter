@@ -211,6 +211,8 @@ class CodyRender:
         self.screen: Optional[pygame.Surface] = None
 
     def render(self):
+        self.cmp.vid_blnk = 1
+
         color_memory_start = 0xA000 + 0x400 * self.cmp.vid_color_memory
         color_memory = self.cmp.memget_multi(color_memory_start, 1000)
         character_memory_start = 0xA000 + 0x800 * self.cmp.vid_character_memory
@@ -223,6 +225,10 @@ class CodyRender:
         border_color = COLORS[self.cmp.vid_border_color]
         self.screen.fill(border_color)
 
+        if self.cmp.vid_screen_disable:
+            return
+
+        self.cmp.vid_blnk = 0
         for i, (char, local_color) in enumerate(zip(screen_memory, color_memory)):
             x = i % 40
             y = i // 40

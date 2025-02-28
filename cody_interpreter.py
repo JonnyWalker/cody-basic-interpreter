@@ -331,7 +331,6 @@ class Interpreter:
             def codscii_chr(x):
                 value = self.eval(x)
                 assert 0 <= value < 256
-                # TODO: use CODSCII charset (extended ascii)
                 return chr(value)
 
             return check_string("".join(map(codscii_chr, args)))
@@ -361,7 +360,6 @@ class Interpreter:
             if len(s) > 0:
 
                 def codscii_ord(c):
-                    # TODO: use CODSCII charset (extended ascii)
                     value = ord(c)
                     assert 0 <= value < 256
                     return value
