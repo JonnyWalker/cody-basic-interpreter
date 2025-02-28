@@ -359,12 +359,22 @@ class CodyRender:
         pygame.quit()
 
 
-def start_basic(io: CodyIO):
+def start_basic(io: CodyIO, file=None):
     parser = CodyBasicParser()
     interpreter = Interpreter(io)
 
-    io.println()
-    io.println("  *** CODY COMPUTER BASIC V1.0emu ***  ")
+    if file:
+        try:
+            interpreter.run_command(parser.parse_command("LOAD 1,0"))
+            interpreter.run()
+        except KeyboardInterrupt:
+            io.println("\nINTERRUPT")
+        except Exception:
+            traceback.print_exc()
+            io.println("\nERROR\n")
+    else:
+        io.println()
+        io.println("  *** CODY COMPUTER BASIC V1.0emu ***  ")
 
     while True:
         source = io.input("\nREADY.\n")
@@ -397,7 +407,7 @@ def start(file=None):
         with open(file) as f:
             load_into_queue(f, 1)
     else:
-        # load lander and trek code
+        # load lander and trek code into uart
         import urllib.request
 
         with urllib.request.urlopen(
@@ -410,7 +420,7 @@ def start(file=None):
         ) as f:
             load_into_queue(f, 2)
 
-    t = threading.Thread(target=start_basic, args=[io])
+    t = threading.Thread(target=start_basic, args=[io, file])
     t.daemon = True
     t.start()
 
@@ -422,7 +432,12 @@ def main():
     parser = argparse.ArgumentParser(
         prog=f"{os.path.basename(__file__)}", description="Cody BASIC (Graphical)"
     )
-    parser.add_argument("file", nargs="?", default=None)
+    parser.add_argument(
+        "file",
+        nargs="?",
+        default=None,
+        help="run the given file, if not given the REPL will be started instead",
+    )
     args = parser.parse_args()
 
     start(args.file)

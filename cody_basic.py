@@ -55,8 +55,18 @@ def main():
     parser = argparse.ArgumentParser(
         prog=f"{os.path.basename(__file__)}", description="Cody BASIC"
     )
-    parser.add_argument("file", nargs="?", default=None)
-    parser.add_argument("-g", "--graphical", action="store_true")
+    parser.add_argument(
+        "file",
+        nargs="?",
+        default=None,
+        help="run the given file, if not given the REPL will be started instead",
+    )
+    parser.add_argument(
+        "-g",
+        "--graphical",
+        action="store_true",
+        help="start graphical emulator",
+    )
     args = parser.parse_args()
 
     if args.graphical:
